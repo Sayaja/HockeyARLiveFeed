@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    /** Called when the user taps the shot button */
+    /** Called when a shot event occurs */
     public void shot() {
 
         // Calculate a random position of the shot
