@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 
 import com.google.android.filament.Box;
 import com.google.ar.core.Anchor;
@@ -17,6 +18,7 @@ import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.ModelRenderable;
+import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import com.google.ar.sceneform.ux.TwistGestureRecognizer;
@@ -27,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ModelRenderable andyRenderable;
     private ModelRenderable hockeyRinkRenderable;
+    private ViewRenderable shotInfoRenderable;
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -35,6 +38,9 @@ public class MainActivity extends AppCompatActivity {
 
     private Integer modelCount = 0;
     private Vector3 shotPos;
+    private String[] teams = {"Detroit", "Maple Leafs", "Sharks", "Boston"};
+    private String[] players = {"N. Kronwall", "G. Nyquist", "A. Matthews", "W. Nylander", "E. Karlsson", "J. Thornton",
+        "Z. Chára", "B. Marchand"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,15 +69,25 @@ public class MainActivity extends AppCompatActivity {
                             return null;
                         });
 
+        ViewRenderable.builder()
+                .setView(this, R.layout.shot_info)
+                .build()
+                .thenAccept(renderable -> shotInfoRenderable = renderable);
+
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
                     firstHit = hitResult;
+
+                    //TextView shotText = findViewById(R.id.shotInfo);
+                    //shotText.setText("hej");
 
                     if (hockeyRinkRenderable == null) {
                         return;
                     }
                     if (modelCount == 1) { // Limit to 1 model
                         shot();
+                        //TextView shotInfo = findViewById(R.id.shotInfo);
+                        //shotInfo.setText("W. Nylander");
                         return;
                     }
 
@@ -97,8 +113,6 @@ public class MainActivity extends AppCompatActivity {
 
                     hockeyRink.setParent(anchorNode);
 
-                    //shot();
-
                     hockeyRink.select();
 
                     modelCount += 1;
@@ -107,6 +121,9 @@ public class MainActivity extends AppCompatActivity {
 
     /** Called when a shot event occurs */
     public void shot() {
+
+        //View shotView = shotInfoRenderable.getView();
+        //shotView.setText("hej");
 
         // Calculate a random position of the shot
         float minZ = -0.50f;
@@ -128,6 +145,9 @@ public class MainActivity extends AppCompatActivity {
         TransformableNode andy = new TransformableNode(arFragment.getTransformationSystem());
         andy.setRenderable(andyRenderable);
 
+        TransformableNode shotInfo = new TransformableNode((arFragment.getTransformationSystem()));
+        shotInfo.setRenderable(shotInfoRenderable);
+
         andy.getScaleController().setMinScale(0.1f);
         andy.getScaleController().setMaxScale(2.0f);
         andy.setLocalScale(new Vector3(0.2f, 0.2f, 0.2f));
@@ -135,7 +155,10 @@ public class MainActivity extends AppCompatActivity {
         //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
         andy.setLocalPosition(shotPos);
 
+        shotInfo.setLocalPosition(shotPos);
+
         andy.setParent(anchorNode);
+        shotInfo.setParent(anchorNode);
 
 //        Intent intent = new Intent(this, DisplayMessageActivity.class);
 //        EditText editText = (EditText) findViewById(R.id.editText);
