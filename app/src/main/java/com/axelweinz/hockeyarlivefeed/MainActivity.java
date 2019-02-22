@@ -1,6 +1,7 @@
 package com.axelweinz.hockeyarlivefeed;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -8,6 +9,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.google.android.filament.Box;
@@ -23,7 +25,10 @@ import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import com.google.ar.sceneform.ux.TwistGestureRecognizer;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -39,8 +44,9 @@ public class MainActivity extends AppCompatActivity {
     private Integer modelCount = 0;
     private Vector3 shotPos;
     private String[] teams = {"Detroit", "Maple Leafs", "Sharks", "Boston"};
-    private String[] players = {"N. Kronwall", "G. Nyquist", "A. Matthews", "W. Nylander", "E. Karlsson", "J. Thornton",
+    private String[] playersArray = {"N. Kronwall", "G. Nyquist", "A. Matthews", "W. Nylander", "E. Karlsson", "J. Thornton",
         "Z. Chára", "B. Marchand"};
+    private Map<String, String> players = new HashMap<String, String>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +54,15 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
+
+        // Assign teams to the players
+        int teamCount = 0;
+        for (int i=0;i<playersArray.length;i++) {
+            players.put(playersArray[i], teams[teamCount]);
+            if (i%2 == 1) {
+                teamCount += 1;
+            }
+        }
 
         ModelRenderable.builder()
                 .setSource(this, R.raw.hockeyrink)
@@ -69,25 +84,20 @@ public class MainActivity extends AppCompatActivity {
                             return null;
                         });
 
-        ViewRenderable.builder()
-                .setView(this, R.layout.shot_info)
-                .build()
-                .thenAccept(renderable -> shotInfoRenderable = renderable);
+//        ViewRenderable.builder()
+//                .setView(this, R.layout.shot_info)
+//                .build()
+//                .thenAccept(renderable -> shotInfoRenderable = renderable);
 
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
                     firstHit = hitResult;
-
-                    //TextView shotText = findViewById(R.id.shotInfo);
-                    //shotText.setText("hej");
 
                     if (hockeyRinkRenderable == null) {
                         return;
                     }
                     if (modelCount == 1) { // Limit to 1 model
                         shot();
-                        //TextView shotInfo = findViewById(R.id.shotInfo);
-                        //shotInfo.setText("W. Nylander");
                         return;
                     }
 
@@ -122,9 +132,6 @@ public class MainActivity extends AppCompatActivity {
     /** Called when a shot event occurs */
     public void shot() {
 
-        //View shotView = shotInfoRenderable.getView();
-        //shotView.setText("hej");
-
         // Calculate a random position of the shot
         float minZ = -0.50f;
         float maxZ = -0.20f;
@@ -135,6 +142,45 @@ public class MainActivity extends AppCompatActivity {
         r = new Random();
         float rX = minX + r.nextFloat() * (maxX - minX);
         shotPos = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
+
+        // Shooter
+        int minPlayer = 0;
+        int maxPlayer = playersArray.length - 1;
+        int randPlayer = ThreadLocalRandom.current().nextInt(minPlayer, maxPlayer + 1);
+        String shooter = playersArray[randPlayer];
+        String playerTeam = players.get(shooter);
+
+        // Create a TextView programmatically.
+        TextView shotText = new TextView(getApplicationContext());
+
+        // Create a LayoutParams for TextView
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
+                RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
+
+        // Apply the layout parameters to TextView widget
+        shotText.setLayoutParams(lp);
+
+        // Set text to display in TextView
+        shotText.setText(shooter);
+
+        // Set a text color for TextView text
+        if (playerTeam == "Detroit") {
+            shotText.setTextColor(Color.parseColor("#CE1126"));
+        } else if (playerTeam == "Maple Leafs") {
+            shotText.setTextColor(Color.parseColor("#003E7E"));
+        } else if (playerTeam == "Sharks") {
+            shotText.setTextColor(Color.parseColor("#006D75"));
+        } else if (playerTeam == "Boston") {
+            shotText.setTextColor(Color.parseColor("#FFB81C"));
+        } else {
+            shotText.setTextColor(Color.parseColor("##000000"));
+        }
+
+        ViewRenderable.builder()
+                .setView(this, shotText)
+                .build()
+                .thenAccept(renderable -> shotInfoRenderable = renderable);
 
         // Create the Anchor.
         Anchor anchor = firstHit.createAnchor();
@@ -155,15 +201,9 @@ public class MainActivity extends AppCompatActivity {
         //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
         andy.setLocalPosition(shotPos);
 
-        shotInfo.setLocalPosition(shotPos);
+        shotInfo.setLocalPosition(new Vector3(shotPos.x, shotPos.y + 0.1f, shotPos.z));
 
         andy.setParent(anchorNode);
         shotInfo.setParent(anchorNode);
-
-//        Intent intent = new Intent(this, DisplayMessageActivity.class);
-//        EditText editText = (EditText) findViewById(R.id.editText);
-//        String message = editText.getText().toString();
-//        intent.putExtra(EXTRA_MESSAGE, message);
-//        startActivity(intent);
     }
 }
