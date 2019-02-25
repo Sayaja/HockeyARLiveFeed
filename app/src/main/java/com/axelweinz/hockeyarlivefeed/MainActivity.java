@@ -20,21 +20,41 @@ import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.ModelRenderable;
+import com.google.ar.sceneform.rendering.Renderable;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import com.google.ar.sceneform.ux.TwistGestureRecognizer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
+
+    class Shot {
+        public long shotTime;
+        public TransformableNode shotInfo;
+        public TransformableNode shotModel;
+        public AnchorNode shotNode;
+    }
 
     private ModelRenderable andyRenderable;
     private ModelRenderable hockeyRinkRenderable;
     private ViewRenderable shotInfoRenderable;
+    private ViewRenderable goalInfoRenderable;
+
+    private TransformableNode goalInfo;
+    private AnchorNode goalInfoNode;
+    private long lastGoalTime;
+
+    private List shotList = new ArrayList();
+
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -43,6 +63,10 @@ public class MainActivity extends AppCompatActivity {
 
     private Integer modelCount = 0;
     private Vector3 shotPos;
+    private String homeTeam = "Detroit";
+    private String awayTeam = "Sharks";
+    private int homeScore = 0;
+    private int awayScore = 0;
     private String[] teams = {"Detroit", "Maple Leafs", "Sharks", "Boston"};
     private String[] playersArray = {"N. Kronwall", "G. Nyquist", "A. Matthews", "W. Nylander", "E. Karlsson", "J. Thornton",
         "Z. Chára", "B. Marchand"};
@@ -97,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
                     if (modelCount == 1) { // Limit to 1 model
-                        shot();
+                        event();
                         return;
                     }
 
@@ -126,7 +150,36 @@ public class MainActivity extends AppCompatActivity {
                     hockeyRink.select();
 
                     modelCount += 1;
+
+//                    long lastEvent = System.nanoTime();
+//                    while (awayScore < 3 || homeScore < 3) {
+//                        if ((System.nanoTime() - lastEvent)/ 1_000_000_000.0 > 5) {
+//                            event();
+//                            lastEvent = System.nanoTime();
+//                        }
+//                    }
                 });
+    }
+
+    // Called when a game event occurs
+    public void event() {
+        // Remove view after certain amount of time
+        if (goalInfo != null) {
+            //if ((System.nanoTime() - lastGoalTime)/ 1_000_000_000.0 > 5) {
+            goalInfo.getScene().onRemoveChild(goalInfo.getParent());
+            goalInfo.setRenderable(null);
+            goalInfoNode.getAnchor().detach();
+            //}
+        }
+
+//        for (int i=0;i<shotList.size();i++) {
+//            Shot temp = (Shot) shotList.get(i);
+//            if ((System.nanoTime() - shotList.get(i)) / 1_000_000_000.0 > 5) {
+//                shotList[0] = tempShot;
+//            }
+//        }
+
+        goal();
     }
 
     /** Called when a shot event occurs */
@@ -180,7 +233,10 @@ public class MainActivity extends AppCompatActivity {
         ViewRenderable.builder()
                 .setView(this, shotText)
                 .build()
-                .thenAccept(renderable -> shotInfoRenderable = renderable);
+                .thenAccept(renderable -> {
+                    shotInfoRenderable = renderable;
+                    renderable.setShadowCaster(false);
+                });
 
         // Create the Anchor.
         Anchor anchor = firstHit.createAnchor();
@@ -205,5 +261,78 @@ public class MainActivity extends AppCompatActivity {
 
         andy.setParent(anchorNode);
         shotInfo.setParent(anchorNode);
+
+        Shot currShot = new Shot();
+        currShot.shotInfo = shotInfo;
+        currShot.shotModel = andy;
+        currShot.shotNode = anchorNode;
+        currShot.shotTime = System.nanoTime();
+        shotList.add(currShot);
+    }
+
+    // Called when there is a goal
+    public void goal() {
+
+        // Shooter
+        int minPlayer = 0;
+        int maxPlayer = playersArray.length - 1;
+        int randPlayer = ThreadLocalRandom.current().nextInt(minPlayer, maxPlayer + 1);
+        String shooter = playersArray[randPlayer];
+        String playerTeam = players.get(shooter);
+        if (playerTeam == homeTeam) {
+            homeScore += 1;
+        } else if (playerTeam == awayTeam) {
+            awayScore += 1;
+        }
+
+        // Create a TextView programmatically.
+        TextView goalText = new TextView(getApplicationContext());
+
+        // Create a LayoutParams for TextView
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
+                RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
+
+        // Apply the layout parameters to TextView widget
+        goalText.setLayoutParams(lp);
+
+        // Set text to display in TextView
+        String temp = "GOAL " + playerTeam + "\n" + shooter + "\n" + String.valueOf(homeScore) + " - " + String.valueOf(awayScore);
+        goalText.setText(temp);
+
+        // Set a text color for TextView text
+        if (playerTeam == "Detroit") {
+            goalText.setTextColor(Color.parseColor("#CE1126"));
+        } else if (playerTeam == "Maple Leafs") {
+            goalText.setTextColor(Color.parseColor("#003E7E"));
+        } else if (playerTeam == "Sharks") {
+            goalText.setTextColor(Color.parseColor("#006D75"));
+        } else if (playerTeam == "Boston") {
+            goalText.setTextColor(Color.parseColor("#FFB81C"));
+        } else {
+            goalText.setTextColor(Color.parseColor("##000000"));
+        }
+
+        ViewRenderable.builder()
+                .setView(this, goalText)
+                .build()
+                .thenAccept(renderable -> {
+                    goalInfoRenderable = renderable;
+                    renderable.setShadowCaster(false);
+                });
+
+        // Create the Anchor.
+        Anchor anchor = firstHit.createAnchor();
+        goalInfoNode = new AnchorNode(anchor);
+        goalInfoNode.setParent(arFragment.getArSceneView().getScene());
+
+        goalInfo = new TransformableNode((arFragment.getTransformationSystem()));
+        goalInfo.setRenderable(goalInfoRenderable);
+
+        goalInfo.setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+
+        goalInfo.setParent(goalInfoNode);
+
+        lastGoalTime = System.nanoTime();
     }
 }
