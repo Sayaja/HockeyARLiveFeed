@@ -14,9 +14,13 @@ import android.widget.TextView;
 
 import com.google.android.filament.Box;
 import com.google.ar.core.Anchor;
+import com.google.ar.core.Config;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
+import com.google.ar.core.Session;
 import com.google.ar.sceneform.AnchorNode;
+import com.google.ar.sceneform.ArSceneView;
+import com.google.ar.sceneform.Scene;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.ModelRenderable;
@@ -28,6 +32,7 @@ import com.google.ar.sceneform.ux.TwistGestureRecognizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -37,11 +42,71 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
-    class Shot {
-        public long shotTime;
-        public TransformableNode shotInfo;
-        public TransformableNode shotModel;
-        public AnchorNode shotNode;
+    class Shot { // Class to store information about a rendered shot
+        public long time;
+        public TransformableNode info;
+        public TransformableNode model;
+        public Anchor anchor;
+        public AnchorNode node;
+
+        public long getTime() {
+            return this.time;
+        }
+
+        public TransformableNode getInfo() {
+            return this.info;
+        }
+
+        public TransformableNode getModel() {
+            return this.model;
+        }
+
+        public Anchor getAnchor() {
+            return this.anchor;
+        }
+
+        public AnchorNode getNode() {
+            return this.node;
+        }
+
+        public void setTime(long time) {
+            this.time = time;
+        }
+
+        public void setInfo(TransformableNode info) {
+            this.info = info;
+        }
+
+        public void setModel(TransformableNode model) {
+            this.model = model;
+        }
+
+        public void setAnchor(Anchor anchor) {
+            this.anchor = anchor;
+        }
+
+        public void setNode(AnchorNode node) {
+            this.node = node;
+        }
+
+        public boolean checkTime() { // Removes the rendered shot if it has been displayed for a certain time
+            if ((System.nanoTime() - this.time) / 1_000_000_000.0 > 5) {
+                try {
+                    this.info.getScene().onRemoveChild(this.info.getParent());
+                    this.model.getScene().onRemoveChild(this.model.getParent());
+                } catch (NullPointerException e) {
+                    // Bug: the first shot doesn't render a ViewText and throws this
+                } finally {
+                    this.info.setRenderable(null);
+                    this.model.setRenderable(null);
+                    this.node.getAnchor().detach();
+
+                    return true;
+                }
+            } else {
+                return false;
+            }
+        }
     }
 
     private ModelRenderable andyRenderable;
@@ -53,13 +118,13 @@ public class MainActivity extends AppCompatActivity {
     private AnchorNode goalInfoNode;
     private long lastGoalTime;
 
-    private List shotList = new ArrayList();
+    private List shotList = new ArrayList(); // Store all shots that are currently rendered and displayed
 
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    private Vector3 rinkPos;
+    private Vector3 rinkPos; // The position of the rink
 
     private Integer modelCount = 0;
     private Vector3 shotPos;
@@ -113,15 +178,18 @@ public class MainActivity extends AppCompatActivity {
 //                .build()
 //                .thenAccept(renderable -> shotInfoRenderable = renderable);
 
+        // arFragment.getArSceneView(). <-- To get access to the ARCore session and more
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-                    firstHit = hitResult;
+                    if (firstHit == null) { // The anchor for the rink. Use this for reference when placing other anchors
+                        firstHit = hitResult;
+                    }
 
                     if (hockeyRinkRenderable == null) {
                         return;
                     }
                     if (modelCount == 1) { // Limit to 1 model
-                        event();
+                        event(); // Generate an event when detected plane is touched
                         return;
                     }
 
@@ -149,21 +217,15 @@ public class MainActivity extends AppCompatActivity {
 
                     hockeyRink.select();
 
+                    // arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
+                    arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
                     modelCount += 1;
-
-//                    long lastEvent = System.nanoTime();
-//                    while (awayScore < 3 || homeScore < 3) {
-//                        if ((System.nanoTime() - lastEvent)/ 1_000_000_000.0 > 5) {
-//                            event();
-//                            lastEvent = System.nanoTime();
-//                        }
-//                    }
                 });
     }
 
     // Called when a game event occurs
     public void event() {
-        // Remove view after certain amount of time
+        // Remove the goal view when next event occurs (the game has resumed)
         if (goalInfo != null) {
             //if ((System.nanoTime() - lastGoalTime)/ 1_000_000_000.0 > 5) {
             goalInfo.getScene().onRemoveChild(goalInfo.getParent());
@@ -172,22 +234,23 @@ public class MainActivity extends AppCompatActivity {
             //}
         }
 
-//        for (int i=0;i<shotList.size();i++) {
-//            Shot temp = (Shot) shotList.get(i);
-//            if ((System.nanoTime() - shotList.get(i)) / 1_000_000_000.0 > 5) {
-//                shotList[0] = tempShot;
-//            }
-//        }
+        Iterator<Shot> i = shotList.iterator();
+        while (i.hasNext()) {
+            if (i.next().checkTime()) { // Returns true and is deleted IF enough time has passed. Otherwise, returns false and doesn't delete
+                i.remove();
+            }
+        }
 
-        goal();
+        // Random event should be generated here
+        shot();
     }
 
     /** Called when a shot event occurs */
     public void shot() {
 
         // Calculate a random position of the shot
-        float minZ = -0.50f;
-        float maxZ = -0.20f;
+        float minZ = -0.40f;
+        float maxZ = -0.05f;
         Random r = new Random();
         float rZ = minZ + r.nextFloat() * (maxZ - minZ);
         float minX = -0.35f;
@@ -196,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
         float rX = minX + r.nextFloat() * (maxX - minX);
         shotPos = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
 
-        // Shooter
+        // Generate random shooter
         int minPlayer = 0;
         int maxPlayer = playersArray.length - 1;
         int randPlayer = ThreadLocalRandom.current().nextInt(minPlayer, maxPlayer + 1);
@@ -238,42 +301,40 @@ public class MainActivity extends AppCompatActivity {
                     renderable.setShadowCaster(false);
                 });
 
+        Shot currShot = new Shot(); // The current shot
+
         // Create the Anchor.
-        Anchor anchor = firstHit.createAnchor();
-        AnchorNode anchorNode = new AnchorNode(anchor);
-        anchorNode.setParent(arFragment.getArSceneView().getScene());
+        currShot.setAnchor(firstHit.createAnchor());
+        currShot.setNode(new AnchorNode(currShot.getAnchor()));
+        currShot.getNode().setParent(arFragment.getArSceneView().getScene());
 
         // Create the transformable andy and add it to the anchor.
-        TransformableNode andy = new TransformableNode(arFragment.getTransformationSystem());
-        andy.setRenderable(andyRenderable);
+        currShot.setModel(new TransformableNode(arFragment.getTransformationSystem()));
+        currShot.getModel().setRenderable(andyRenderable);
 
-        TransformableNode shotInfo = new TransformableNode((arFragment.getTransformationSystem()));
-        shotInfo.setRenderable(shotInfoRenderable);
+        currShot.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
+        currShot.getInfo().setRenderable(shotInfoRenderable);
 
-        andy.getScaleController().setMinScale(0.1f);
-        andy.getScaleController().setMaxScale(2.0f);
-        andy.setLocalScale(new Vector3(0.2f, 0.2f, 0.2f));
+        currShot.getModel().getScaleController().setMinScale(0.1f);
+        currShot.getModel().getScaleController().setMaxScale(2.0f);
+        currShot.getModel().setLocalScale(new Vector3(0.2f, 0.2f, 0.2f));
         //Vector3 pos = andy.getLocalPosition();
         //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
-        andy.setLocalPosition(shotPos);
+        currShot.getModel().setLocalPosition(shotPos);
 
-        shotInfo.setLocalPosition(new Vector3(shotPos.x, shotPos.y + 0.1f, shotPos.z));
+        currShot.getInfo().setLocalPosition(new Vector3(shotPos.x, shotPos.y + 0.1f, shotPos.z));
 
-        andy.setParent(anchorNode);
-        shotInfo.setParent(anchorNode);
+        currShot.getModel().setParent(currShot.getNode());
+        currShot.getInfo().setParent(currShot.getNode());
 
-        Shot currShot = new Shot();
-        currShot.shotInfo = shotInfo;
-        currShot.shotModel = andy;
-        currShot.shotNode = anchorNode;
-        currShot.shotTime = System.nanoTime();
+        currShot.setTime(System.nanoTime());
         shotList.add(currShot);
     }
 
     // Called when there is a goal
     public void goal() {
 
-        // Shooter
+        // Random shooter
         int minPlayer = 0;
         int maxPlayer = playersArray.length - 1;
         int randPlayer = ThreadLocalRandom.current().nextInt(minPlayer, maxPlayer + 1);
