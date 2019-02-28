@@ -205,12 +205,14 @@ public class MainActivity extends AppCompatActivity {
     private Integer modelCount = 0;
     private long gameTime;
     private String homeTeam = "Detroit";
-    private String awayTeam = "Sharks";
+    private String awayTeam = "Maple Leafs";
     private int homeScore = 0;
     private int awayScore = 0;
-    private String[] teams = {"Detroit", "Maple Leafs", "Sharks", "Boston"};
-    private String[] playersArray = {"N. Kronwall", "G. Nyquist", "A. Matthews", "W. Nylander", "E. Karlsson", "J. Thornton",
-        "Z. Chára", "B. Marchand"};
+    private String[] teams = {"Detroit", "Maple Leafs"}; //, "Sharks", "Boston"};
+    private String[] playersArray = {"N. Kronwall", "G. Nyquist", "D. Larkin", "T. Bertuzzi", "J. Franzén",
+            "A. Matthews", "W. Nylander", "M. Marner", "J. Gardiner", "J. Tavares"};
+    //, "E. Karlsson", "J. Thornton",
+    //"Z. Chára", "B. Marchand"};
     private Map<String, String> players = new HashMap<String, String>();
 
     @Override
@@ -224,7 +226,7 @@ public class MainActivity extends AppCompatActivity {
         int teamCount = 0;
         for (int i=0;i<playersArray.length;i++) {
             players.put(playersArray[i], teams[teamCount]);
-            if (i%2 == 1) {
+            if (i%5 == 4) {
                 teamCount += 1;
             }
         }
@@ -260,7 +262,8 @@ public class MainActivity extends AppCompatActivity {
         // Apply the layout parameters to TextView widget
         scoreText.setLayoutParams(lp);
 
-        scoreText.setText(homeTeam + " " + homeScore + " - " + awayScore + " " + awayTeam);
+        String tempScore = homeTeam + " " + homeScore + " - " + awayScore + " " + awayTeam;
+        scoreText.setText(tempScore);
         scoreText.setTextColor(Color.parseColor("#000000"));
 
         ViewRenderable.builder()
@@ -373,11 +376,13 @@ public class MainActivity extends AppCompatActivity {
 
         // Remove the goal view when next event occurs (the game has resumed)
         if (goalInfo != null) {
-            //if ((System.nanoTime() - lastGoalTime)/ 1_000_000_000.0 > 5) {
-            goalInfo.getScene().onRemoveChild(goalInfo.getParent());
-            goalInfo.setRenderable(null);
-            goalInfoNode.getAnchor().detach();
-            //}
+            try {
+                goalInfo.getScene().onRemoveChild(goalInfo.getParent());
+                goalInfo.setRenderable(null);
+                goalInfoNode.getAnchor().detach();
+            } catch (NullPointerException e) {
+                // Bug: First goal doesn't render
+            }
         }
 
         Iterator<Shot> i = shotList.iterator();
@@ -393,14 +398,26 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        int minEvent = 0;
+        int maxEvent = 20;
+        int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
+
         // Random event should be generated here
-        //shot(player, team, position);
+        if (randEvent <= 15) {
+            newShot(player, team, position);
+        } else if (randEvent < 18) {
+            goal(player, team);
+        } else {
+            newEjection(player, team, position);
+        }
+
+        //newShot(player, team , position);
         //goal(player, team);
-        ejection(player, team, position);
+        //newEjection(player, team, position);
     }
 
     /** Called when a shot event occurs */
-    public void shot(String player, String team, Vector3 position) {
+    public void newShot(String player, String team, Vector3 position) {
 
         // Create a TextView programmatically.
         TextView shotText = new TextView(getApplicationContext());
@@ -531,8 +548,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Create the Anchor.
         Anchor anchor = firstHit.createAnchor();
+        Anchor anchor1 = firstHit.createAnchor();
         goalInfoNode = new AnchorNode(anchor);
-        scoreBugNode = new AnchorNode(anchor);
+        scoreBugNode = new AnchorNode(anchor1);
         goalInfoNode.setParent(arFragment.getArSceneView().getScene());
         scoreBugNode.setParent(arFragment.getArSceneView().getScene());
 
@@ -548,7 +566,7 @@ public class MainActivity extends AppCompatActivity {
         scoreBug.setParent(scoreBugNode);
     }
 
-    public void ejection(String player, String team, Vector3 position) { // Called when a player is ejected from play
+    public void newEjection(String player, String team, Vector3 position) { // Called when a player is ejected from play
 
         // Create a TextView programmatically.
         TextView ejectionText = new TextView(getApplicationContext());
