@@ -3,6 +3,7 @@ package com.axelweinz.hockeyarlivefeed;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -43,141 +44,8 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+
 public class MainActivity extends AppCompatActivity {
-
-    class Shot { // Class to store information about a rendered shot
-        public long time;
-        public TransformableNode info;
-        public TransformableNode model;
-        public Anchor anchor;
-        public AnchorNode node;
-
-        public long getTime() {
-            return this.time;
-        }
-
-        public TransformableNode getInfo() {
-            return this.info;
-        }
-
-        public TransformableNode getModel() {
-            return this.model;
-        }
-
-        public Anchor getAnchor() {
-            return this.anchor;
-        }
-
-        public AnchorNode getNode() {
-            return this.node;
-        }
-
-        public void setTime(long time) {
-            this.time = time;
-        }
-
-        public void setInfo(TransformableNode info) {
-            this.info = info;
-        }
-
-        public void setModel(TransformableNode model) {
-            this.model = model;
-        }
-
-        public void setAnchor(Anchor anchor) {
-            this.anchor = anchor;
-        }
-
-        public void setNode(AnchorNode node) {
-            this.node = node;
-        }
-
-        public boolean checkTime() { // Removes the rendered shot if it has been displayed for a certain time
-            if ((System.nanoTime() - this.time) / 1_000_000_000.0 > 5) {
-                try {
-                    this.info.getScene().onRemoveChild(this.info.getParent());
-                    this.model.getScene().onRemoveChild(this.model.getParent());
-                } catch (NullPointerException e) {
-                    // Bug: the first shot doesn't render a ViewText and throws this
-                } finally {
-                    this.info.setRenderable(null);
-                    this.model.setRenderable(null);
-                    this.node.getAnchor().detach();
-
-                    return true;
-                }
-            } else {
-                return false;
-            }
-        }
-    }
-
-    class Ejection { // Class to store information about a rendered ejection
-        public long time;
-        public TransformableNode info;
-        public TransformableNode model;
-        public Anchor anchor;
-        public AnchorNode node;
-
-        public long getTime() {
-            return this.time;
-        }
-
-        public TransformableNode getInfo() {
-            return this.info;
-        }
-
-        public TransformableNode getModel() {
-            return this.model;
-        }
-
-        public Anchor getAnchor() {
-            return this.anchor;
-        }
-
-        public AnchorNode getNode() {
-            return this.node;
-        }
-
-        public void setTime(long time) {
-            this.time = time;
-        }
-
-        public void setInfo(TransformableNode info) {
-            this.info = info;
-        }
-
-        public void setModel(TransformableNode model) {
-            this.model = model;
-        }
-
-        public void setAnchor(Anchor anchor) {
-            this.anchor = anchor;
-        }
-
-        public void setNode(AnchorNode node) {
-            this.node = node;
-        }
-
-        public boolean checkTime() { // Removes the rendered shot if it has been displayed for a certain time
-            if ((System.nanoTime() - this.time) / 1_000_000_000.0 > 5) {
-                try {
-                    this.info.getScene().onRemoveChild(this.info.getParent());
-                    this.model.getScene().onRemoveChild(this.model.getParent());
-                } catch (NullPointerException e) {
-                    // Bug: the first ejection doesn't render a ViewText and throws this
-                } finally {
-                    this.info.setRenderable(null);
-                    this.model.setRenderable(null);
-                    this.node.getAnchor().detach();
-
-                    return true;
-                }
-            } else {
-                return false;
-            }
-        }
-    }
 
     private ModelRenderable andyRenderable;
     private ModelRenderable hockeyRinkRenderable;
@@ -187,33 +55,30 @@ public class MainActivity extends AppCompatActivity {
     private ViewRenderable goalInfoRenderable;
     private ViewRenderable scoreBugRenderable;
 
-    private TransformableNode scoreBug;
-    private AnchorNode scoreBugNode;
-
-    private TransformableNode goalInfo;
-    private AnchorNode goalInfoNode;
-
-    private List shotList = new ArrayList(); // Store all shots that are currently rendered and displayed
-    private List ejectionList = new ArrayList(); // Store all ejections that are currently rendered and displayed
+    private Game game = new Game(); // Game class that contains all general nodes etc
 
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
+    private Handler handler = new Handler();
+    private Runnable runnable = new Runnable() { // Runnable for API call or generate an event
+        @Override
+        public void run() {
+            event();
+
+            handler.postDelayed(this, 4000);
+        }
+    };
 
     private Vector3 rinkPos; // The position of the rink
+    private Integer modelCount = 0; // Only 1 rink to be displayed
 
-    private Integer modelCount = 0;
-    private long gameTime;
-    private String homeTeam = "Detroit";
-    private String awayTeam = "Maple Leafs";
-    private int homeScore = 0;
-    private int awayScore = 0;
-    private String[] teams = {"Detroit", "Maple Leafs"}; //, "Sharks", "Boston"};
+    private String[] teams = {"Detroit", "Maple Leafs"}; //, "Sharks", "Boston"}; // Placeholder teams
     private String[] playersArray = {"N. Kronwall", "G. Nyquist", "D. Larkin", "T. Bertuzzi", "J. Franzén",
-            "A. Matthews", "W. Nylander", "M. Marner", "J. Gardiner", "J. Tavares"};
+            "A. Matthews", "W. Nylander", "M. Marner", "J. Gardiner", "J. Tavares"}; // Placeholder players
     //, "E. Karlsson", "J. Thornton",
     //"Z. Chára", "B. Marchand"};
-    private Map<String, String> players = new HashMap<String, String>();
+    private Map<String, String> players = new HashMap<String, String>(); // Players and their corresponding teams
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -230,6 +95,12 @@ public class MainActivity extends AppCompatActivity {
                 teamCount += 1;
             }
         }
+
+        // Placeholder teams and score
+        game.setHomeTeam("Detroit");
+        game.setAwayTeam("Maple Leafs");
+        game.setHomeScore(0);
+        game.setAwayScore(0);
 
         ModelRenderable.builder()
                 .setSource(this, R.raw.hockeyrink)
@@ -262,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
         // Apply the layout parameters to TextView widget
         scoreText.setLayoutParams(lp);
 
-        String tempScore = homeTeam + " " + homeScore + " - " + awayScore + " " + awayTeam;
+        String tempScore = game.getHomeTeam() + " " + game.getHomeScore() + " - " + game.getAwayScore() + " " + game.getAwayTeam();
         scoreText.setText(tempScore);
         scoreText.setTextColor(Color.parseColor("#000000"));
 
@@ -289,13 +160,8 @@ public class MainActivity extends AppCompatActivity {
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
                     if (firstHit == null) { // The anchor for the rink. Use this for reference when placing other anchors
                         firstHit = hitResult;
-                        gameTime = System.nanoTime();
+                        game.setGameTime(System.nanoTime());
                     }
-
-//                    while (true) {
-//                        arFragment.setOnTapArPlaneListener((HitResult hitResult1, Plane plane1, MotionEvent motionEvent1) -> {
-//                        });
-//                    }
 
                     if (hockeyRinkRenderable == null) {
                         return;
@@ -309,16 +175,16 @@ public class MainActivity extends AppCompatActivity {
                     Anchor anchor = hitResult.createAnchor();
                     Anchor anchor1 = hitResult.createAnchor();
                     AnchorNode anchorNode = new AnchorNode(anchor);
-                    scoreBugNode = new AnchorNode(anchor1);
+                    game.setScoreBugNode(new AnchorNode(anchor1));
 
                     anchorNode.setParent(arFragment.getArSceneView().getScene());
-                    scoreBugNode.setParent(arFragment.getArSceneView().getScene());
+                    game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
 
                     // Create the transformable andy and add it to the anchor.
                     TransformableNode hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
-                    scoreBug = new TransformableNode(arFragment.getTransformationSystem());
+                    game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
                     hockeyRink.setRenderable(hockeyRinkRenderable);
-                    scoreBug.setRenderable(scoreBugRenderable);
+                    game.getScoreBug().setRenderable(scoreBugRenderable);
 
                     // Set correct rotation of model, then disable rotation with twist
                     hockeyRink.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), -90f));
@@ -331,27 +197,18 @@ public class MainActivity extends AppCompatActivity {
                     Vector3 temp = new Vector3(rinkPos.x + 0, rinkPos.y + (rinkPos.y+0)/10f, rinkPos.z + 0);
                     //hockeyRink.setLocalPosition(temp);
 
-                    scoreBug.setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+                    game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
 
                     hockeyRink.setParent(anchorNode);
-                    scoreBug.setParent(scoreBugNode);
+                    game.getScoreBug().setParent(game.getScoreBugNode());
 
                     hockeyRink.select();
 
                     // arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
                     arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
                     modelCount += 1;
+                    handler.postDelayed(runnable, 4000); // Start runnable
                 });
-
-//        MotionEvent motionEvent = MotionEvent.obtain(
-//                SystemClock.uptimeMillis(),
-//                eventTime,
-//                MotionEvent.ACTION_UP,
-//                x,
-//                y,
-//                metaState
-//        );
-//        arFragment.getArSceneView().dispatchTouchEvent(motionEvent);
     }
 
     // Called when a game event occurs
@@ -375,23 +232,23 @@ public class MainActivity extends AppCompatActivity {
         Vector3 position = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
 
         // Remove the goal view when next event occurs (the game has resumed)
-        if (goalInfo != null) {
+        if (game.getGoalInfo() != null) {
             try {
-                goalInfo.getScene().onRemoveChild(goalInfo.getParent());
-                goalInfo.setRenderable(null);
-                goalInfoNode.getAnchor().detach();
+                game.getGoalInfo().getScene().onRemoveChild(game.getGoalInfo().getParent());
+                game.getGoalInfo().setRenderable(null);
+                game.getGoalInfoNode().getAnchor().detach();
             } catch (NullPointerException e) {
                 // Bug: First goal doesn't render
             }
         }
 
-        Iterator<Shot> i = shotList.iterator();
+        Iterator<Shot> i = game.getShotList().iterator();
         while (i.hasNext()) {
             if (i.next().checkTime()) { // Returns true and is deleted IF enough time has passed. Otherwise, returns false and doesn't delete
                 i.remove();
             }
         }
-        Iterator<Ejection> j = ejectionList.iterator();
+        Iterator<Ejection> j = game.getEjectionList().iterator();
         while (j.hasNext()) {
             if (j.next().checkTime()) { // Returns true and is deleted IF enough time has passed. Otherwise, returns false and doesn't delete
                 j.remove();
@@ -443,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (team == "Boston") {
             shotText.setTextColor(Color.parseColor("#FFB81C"));
         } else {
-            shotText.setTextColor(Color.parseColor("##000000"));
+            shotText.setTextColor(Color.parseColor("#000000"));
         }
 
         ViewRenderable.builder()
@@ -481,21 +338,21 @@ public class MainActivity extends AppCompatActivity {
         currShot.getInfo().setParent(currShot.getNode());
 
         currShot.setTime(System.nanoTime());
-        shotList.add(currShot);
+        game.getShotList().add(currShot);
     }
 
     // Called when there is a goal
     public void goal(String player, String team) {
 
         // Delete old scoreBug
-        scoreBug.getScene().onRemoveChild(scoreBug.getParent());
-        scoreBug.setRenderable(null);
-        scoreBugNode.getAnchor().detach();
+        game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
+        game.getScoreBug().setRenderable(null);
+        game.getScoreBugNode().getAnchor().detach();
 
-        if (team == homeTeam) {
-            homeScore += 1;
-        } else if (team == awayTeam) {
-            awayScore += 1;
+        if (team == game.getHomeTeam()) {
+            game.setHomeScore(game.getHomeScore() + 1);
+        } else if (team == game.getAwayTeam()) {
+            game.setAwayScore(game.getAwayScore() + 1);
         }
 
         // Create a TextView programmatically.
@@ -512,9 +369,9 @@ public class MainActivity extends AppCompatActivity {
         scoreText.setLayoutParams(lp);
 
         // Set text to display in TextView
-        String temp = "GOAL " + team + "\n" + player + "\n" + String.valueOf(homeScore) + " - " + String.valueOf(awayScore);
+        String temp = "GOAL " + team + "\n" + player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
         goalText.setText(temp);
-        scoreText.setText(homeTeam + " " + homeScore + " - " + awayScore + " " + awayTeam);
+        scoreText.setText(game.getHomeTeam() + " " + game.getHomeScore() + " - " + game.getAwayScore() + " " + game.getAwayTeam());
 
         // Set a text color for TextView text
         if (team == "Detroit") {
@@ -549,21 +406,21 @@ public class MainActivity extends AppCompatActivity {
         // Create the Anchor.
         Anchor anchor = firstHit.createAnchor();
         Anchor anchor1 = firstHit.createAnchor();
-        goalInfoNode = new AnchorNode(anchor);
-        scoreBugNode = new AnchorNode(anchor1);
-        goalInfoNode.setParent(arFragment.getArSceneView().getScene());
-        scoreBugNode.setParent(arFragment.getArSceneView().getScene());
+        game.setGoalInfoNode(new AnchorNode(anchor));
+        game.setScoreBugNode(new AnchorNode(anchor1));
+        game.getGoalInfoNode().setParent(arFragment.getArSceneView().getScene());
+        game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
 
-        goalInfo = new TransformableNode(arFragment.getTransformationSystem());
-        scoreBug = new TransformableNode(arFragment.getTransformationSystem());
-        goalInfo.setRenderable(goalInfoRenderable);
-        scoreBug.setRenderable(scoreBugRenderable);
+        game.setGoalInfo(new TransformableNode(arFragment.getTransformationSystem()));
+        game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
+        game.getGoalInfo().setRenderable(goalInfoRenderable);
+        game.getScoreBug().setRenderable(scoreBugRenderable);
 
-        goalInfo.setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
-        scoreBug.setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+        game.getGoalInfo().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+        game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
 
-        goalInfo.setParent(goalInfoNode);
-        scoreBug.setParent(scoreBugNode);
+        game.getGoalInfo().setParent(game.getGoalInfoNode());
+        game.getScoreBug().setParent(game.getScoreBugNode());
     }
 
     public void newEjection(String player, String team, Vector3 position) { // Called when a player is ejected from play
@@ -592,7 +449,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (team == "Boston") {
             ejectionText.setTextColor(Color.parseColor("#FFB81C"));
         } else {
-            ejectionText.setTextColor(Color.parseColor("##000000"));
+            ejectionText.setTextColor(Color.parseColor("#000000"));
         }
 
         ViewRenderable.builder()
@@ -625,6 +482,6 @@ public class MainActivity extends AppCompatActivity {
         currEjection.getInfo().setParent(currEjection.getNode());
 
         currEjection.setTime(System.nanoTime());
-        ejectionList.add(currEjection);
+        game.getEjectionList().add(currEjection);
     }
 }

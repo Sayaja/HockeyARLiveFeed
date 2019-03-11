@@ -10,7 +10,7 @@ import com.google.ar.sceneform.ux.TransformableNode;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Game {
+public class Game { // Class to store general information about the game
     private TransformableNode scoreBug;
     private AnchorNode scoreBugNode;
 
