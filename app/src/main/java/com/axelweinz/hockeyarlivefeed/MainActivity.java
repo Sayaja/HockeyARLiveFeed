@@ -14,6 +14,13 @@ import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.filament.Box;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Config;
@@ -33,6 +40,9 @@ import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import com.google.ar.sceneform.ux.TwistGestureRecognizer;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -170,6 +180,33 @@ public class MainActivity extends AppCompatActivity {
                         event(); // Generate an event when detected plane is touched
                         return;
                     }
+
+                    // Instantiate the RequestQueue.
+                    RequestQueue queue = MySingleton.getInstance(this.getApplicationContext()).getRequestQueue();
+                    String url ="https://jsonplaceholder.typicode.com/todos/1";
+
+                    JsonObjectRequest jsonObjectRequest = new JsonObjectRequest
+                            (Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
+
+                                @Override
+                                public void onResponse(JSONObject response) {
+                                    try {
+                                        Log.d(TAG, "ARRIBA " + response.getString("title"));
+                                    } catch (JSONException e) {
+                                        Log.d(TAG, "BEEP BOOP");
+                                    }
+                                }
+                            }, new Response.ErrorListener() {
+
+                                @Override
+                                public void onErrorResponse(VolleyError error) {
+                                    Log.d(TAG, "OH NO");
+
+                                }
+                            });
+
+                    // Add the request to the RequestQueue.
+                    MySingleton.getInstance(this).addToRequestQueue(jsonObjectRequest);
 
                     // Create the Anchor.
                     Anchor anchor = hitResult.createAnchor();
