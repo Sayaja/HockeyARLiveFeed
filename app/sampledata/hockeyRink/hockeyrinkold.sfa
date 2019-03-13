@@ -1,12 +1,7 @@
 {
   animations: [
     {
-      clips: [
-        {
-          name: 'Take 001',
-          runtime_name: 'hockeyrink',
-        },
-      ],
+      name: 'hockeyrink',
       path: 'sampledata/hockeyRink/hockeyrink.fbx',
     },
   ],
@@ -632,7 +627,7 @@
     file: 'sampledata/hockeyRink/hockeyrink.fbx',
     name: 'hockeyrink',
     recenter: 'root',
-    scale: 0.28323799999999999,
+    scale: 0.0001831999999999999,
   },
   samplers: [
     {
@@ -651,5 +646,5 @@
       pipeline_name: 'model\\material_2.png',
     },
   ],
-  version: '0.54:2',
+  version: '0.54:1',
 }

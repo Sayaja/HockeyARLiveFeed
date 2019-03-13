@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "445329674017",
+    "firebase_url": "https://hockeyarlivefeed.firebaseio.com",
+    "project_id": "hockeyarlivefeed",
+    "storage_bucket": "hockeyarlivefeed.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:445329674017:android:967e80c981b5a0bb",
+        "android_client_info": {
+          "package_name": "com.axelweinz.hockeyarlivefeed"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "445329674017-av771itpkva9b7ipsvsao0huoi63k8f6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.axelweinz.hockeyarlivefeed",
+            "certificate_hash": "0779fc92993ade6bed5f5564dc0c3ac3ae2aef68"
+          }
+        },
+        {
+          "client_id": "445329674017-dqpbg5adknrauopl6qokj8ilotpnc1t7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlkTwbiCgDpOImLaSrXGBx_WorjEM238k"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "445329674017-dqpbg5adknrauopl6qokj8ilotpnc1t7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

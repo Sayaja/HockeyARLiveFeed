@@ -5,11 +5,23 @@ import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.ux.TransformableNode;
 
 public class Shot { // Class to store information about a rendered shot
-    private long time;
-    private TransformableNode info;
-    private TransformableNode model;
-    private Anchor anchor;
-    private AnchorNode node;
+    public long time;
+    public TransformableNode info;
+    public TransformableNode model;
+    public Anchor anchor;
+    public AnchorNode node;
+
+    public Shot() {
+        // Default constructor required for calls to DataSnapshot.getValue(User.class)
+    }
+
+    public Shot(long time, TransformableNode info, TransformableNode model, Anchor anchor, AnchorNode node) {
+        this.time = time;
+        this.info = info;
+        this.model = model;
+        this.anchor = anchor;
+        this.node = node;
+    }
 
     public long getTime() {
         return this.time;

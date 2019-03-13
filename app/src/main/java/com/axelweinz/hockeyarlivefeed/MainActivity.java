@@ -1,16 +1,11 @@
 package com.axelweinz.hockeyarlivefeed;
 
-import android.content.Intent;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MotionEvent;
-import android.view.View;
-import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -19,27 +14,24 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
-import com.google.android.filament.Box;
 import com.google.ar.core.Anchor;
-import com.google.ar.core.Config;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
-import com.google.ar.core.Session;
 import com.google.ar.sceneform.AnchorNode;
-import com.google.ar.sceneform.ArSceneView;
-import com.google.ar.sceneform.Scene;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.MaterialFactory;
 import com.google.ar.sceneform.rendering.ModelRenderable;
-import com.google.ar.sceneform.rendering.Renderable;
 import com.google.ar.sceneform.rendering.ShapeFactory;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
-import com.google.ar.sceneform.ux.TwistGestureRecognizer;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.GenericTypeIndicator;
+import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -48,11 +40,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -65,6 +55,11 @@ public class MainActivity extends AppCompatActivity {
     private ViewRenderable goalInfoRenderable;
     private ViewRenderable scoreBugRenderable;
 
+    private FirebaseDatabase db = FirebaseDatabase.getInstance();
+    private DatabaseReference dbShotsRef = db.getReference("shots");
+    private DatabaseReference dbEjectionsRef = db.getReference("ejections");
+    private DatabaseReference dbGoalsRef = db.getReference("goals");
+
     private Game game = new Game(); // Game class that contains all general nodes etc
 
     private ArFragment arFragment;
@@ -74,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
     private Runnable runnable = new Runnable() { // Runnable for API call or generate an event
         @Override
         public void run() {
-            event();
+            //event();
 
             handler.postDelayed(this, 4000);
         }
@@ -113,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
         game.setAwayScore(0);
 
         ModelRenderable.builder()
-                .setSource(this, R.raw.hockeyrink)
+                .setSource(this, R.raw.hockeyrinkold)
                 .build()
                 .thenAccept(renderable -> hockeyRinkRenderable = renderable)
                 .exceptionally(
@@ -181,32 +176,33 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // Instantiate the RequestQueue.
-                    RequestQueue queue = MySingleton.getInstance(this.getApplicationContext()).getRequestQueue();
-                    String url ="https://jsonplaceholder.typicode.com/todos/1";
+                    // Read from the database
+                    dbShotsRef.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            // This method is called once with the initial value and again
+                            // whenever data at this location is updated.
+                            //TestClass value = dataSnapshot.child("xd").getValue(TestClass.class);
+                            //Log.d(TAG, "ZUP: " + value.getTestString());
+                            //Log.d(TAG, "ZAP: " + value.testString);
 
-                    JsonObjectRequest jsonObjectRequest = new JsonObjectRequest
-                            (Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
-
-                                @Override
-                                public void onResponse(JSONObject response) {
-                                    try {
-                                        Log.d(TAG, "ARRIBA " + response.getString("title"));
-                                    } catch (JSONException e) {
-                                        Log.d(TAG, "BEEP BOOP");
-                                    }
+                            long cCount = dataSnapshot.getChildrenCount();
+                            long lCount = 1;
+                            for (DataSnapshot postSnapshot: dataSnapshot.getChildren()) {
+                                if (lCount >= cCount) {
+                                    TestClass post = postSnapshot.getValue(TestClass.class);
+                                    Log.d("ZIB", post.getTestString());
                                 }
-                            }, new Response.ErrorListener() {
+                                lCount += 1;
+                            }
+                        }
 
-                                @Override
-                                public void onErrorResponse(VolleyError error) {
-                                    Log.d(TAG, "OH NO");
-
-                                }
-                            });
-
-                    // Add the request to the RequestQueue.
-                    MySingleton.getInstance(this).addToRequestQueue(jsonObjectRequest);
+                        @Override
+                        public void onCancelled(DatabaseError error) {
+                            // Failed to read value
+                            Log.w(TAG, "Failed to read value.", error.toException());
+                        }
+                    });
 
                     // Create the Anchor.
                     Anchor anchor = hitResult.createAnchor();
@@ -376,6 +372,10 @@ public class MainActivity extends AppCompatActivity {
 
         currShot.setTime(System.nanoTime());
         game.getShotList().add(currShot);
+
+        TestClass testClass = new TestClass("AMIGO", 0.1234);
+        //dbShotsRef.child("xd").setValue(testClass);
+        dbShotsRef.push().setValue(testClass);
     }
 
     // Called when there is a goal
