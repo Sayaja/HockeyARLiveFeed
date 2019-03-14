@@ -1,11 +1,13 @@
 package com.axelweinz.hockeyarlivefeed;
 
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -42,7 +44,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -89,6 +94,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Clear Firebase when new game starts
+        dbShotsRef.removeValue();
+        dbEjectionsRef.removeValue();
+        dbGoalsRef.removeValue();
 
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
 
@@ -176,22 +186,64 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // Read from the database
+                    // Set up listeners here and have them call the corresponding methods
                     dbShotsRef.addValueEventListener(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
                             // This method is called once with the initial value and again
                             // whenever data at this location is updated.
-                            //TestClass value = dataSnapshot.child("xd").getValue(TestClass.class);
-                            //Log.d(TAG, "ZUP: " + value.getTestString());
-                            //Log.d(TAG, "ZAP: " + value.testString);
-
                             long cCount = dataSnapshot.getChildrenCount();
                             long lCount = 1;
-                            for (DataSnapshot postSnapshot: dataSnapshot.getChildren()) {
+                            for (DataSnapshot shotSnapshot: dataSnapshot.getChildren()) {
                                 if (lCount >= cCount) {
-                                    TestClass post = postSnapshot.getValue(TestClass.class);
-                                    Log.d("ZIB", post.getTestString());
+                                    Shot currShot = shotSnapshot.getValue(Shot.class);
+                                    newShot(currShot);
+                                }
+                                lCount += 1;
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError error) {
+                            // Failed to read value
+                            Log.w(TAG, "Failed to read value.", error.toException());
+                        }
+                    });
+
+                    dbEjectionsRef.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            // This method is called once with the initial value and again
+                            // whenever data at this location is updated.
+                            long cCount = dataSnapshot.getChildrenCount();
+                            long lCount = 1;
+                            for (DataSnapshot ejectionSnapshot: dataSnapshot.getChildren()) {
+                                if (lCount >= cCount) {
+                                    Ejection currEjection = ejectionSnapshot.getValue(Ejection.class);
+                                    newEjection(currEjection);
+                                }
+                                lCount += 1;
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError error) {
+                            // Failed to read value
+                            Log.w(TAG, "Failed to read value.", error.toException());
+                        }
+                    });
+
+                    dbGoalsRef.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            // This method is called once with the initial value and again
+                            // whenever data at this location is updated.
+                            long cCount = dataSnapshot.getChildrenCount();
+                            long lCount = 1;
+                            for (DataSnapshot goalSnapshot: dataSnapshot.getChildren()) {
+                                if (lCount >= cCount) {
+                                    game.setGoal(goalSnapshot.getValue(Goal.class));
+                                    newGoal(game.getGoal());
                                 }
                                 lCount += 1;
                             }
@@ -262,17 +314,14 @@ public class MainActivity extends AppCompatActivity {
         float maxX = 0.35f;
         r = new Random();
         float rX = minX + r.nextFloat() * (maxX - minX);
-        Vector3 position = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
+        Vector3 pos = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
 
         // Remove the goal view when next event occurs (the game has resumed)
-        if (game.getGoalInfo() != null) {
-            try {
-                game.getGoalInfo().getScene().onRemoveChild(game.getGoalInfo().getParent());
-                game.getGoalInfo().setRenderable(null);
-                game.getGoalInfoNode().getAnchor().detach();
-            } catch (NullPointerException e) {
-                // Bug: First goal doesn't render
-            }
+        try {
+            game.getGoal().getInfo().getScene().onRemoveChild(game.getGoal().getInfo().getParent());
+            game.getGoal().getInfo().setRenderable(null);
+            game.getGoal().getNode().getAnchor().detach();
+        } catch (NullPointerException e) {
         }
 
         Iterator<Shot> i = game.getShotList().iterator();
@@ -291,14 +340,19 @@ public class MainActivity extends AppCompatActivity {
         int minEvent = 0;
         int maxEvent = 20;
         int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
+        //int randEvent = 17;
 
         // Random event should be generated here
+        // Push to Firebase here instead of calling functions
         if (randEvent <= 15) {
-            newShot(player, team, position);
+            Shot currShot = new Shot(System.nanoTime(), player, team, pos.x, pos.y, pos.z);
+            dbShotsRef.push().setValue(currShot);
         } else if (randEvent < 18) {
-            goal(player, team);
+            Goal currGoal = new Goal(System.nanoTime(), player, team);
+            dbGoalsRef.push().setValue(currGoal);
         } else {
-            newEjection(player, team, position);
+            Ejection currEjection = new Ejection(System.nanoTime(), player, team, pos.x, pos.y, pos.z);
+            dbEjectionsRef.push().setValue(currEjection);
         }
 
         //newShot(player, team , position);
@@ -307,7 +361,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /** Called when a shot event occurs */
-    public void newShot(String player, String team, Vector3 position) {
+    public void newShot(Shot currShot) {
 
         // Create a TextView programmatically.
         TextView shotText = new TextView(getApplicationContext());
@@ -321,74 +375,84 @@ public class MainActivity extends AppCompatActivity {
         shotText.setLayoutParams(lp);
 
         // Set text to display in TextView
-        shotText.setText(player);
+        shotText.setText(currShot.player);
 
         // Set a text color for TextView text
-        if (team == "Detroit") {
+        if (currShot.team == "Detroit") {
             shotText.setTextColor(Color.parseColor("#CE1126"));
-        } else if (team == "Maple Leafs") {
+        } else if (currShot.team == "Maple Leafs") {
             shotText.setTextColor(Color.parseColor("#003E7E"));
-        } else if (team == "Sharks") {
+        } else if (currShot.team == "Sharks") {
             shotText.setTextColor(Color.parseColor("#006D75"));
-        } else if (team == "Boston") {
+        } else if (currShot.team == "Boston") {
             shotText.setTextColor(Color.parseColor("#FFB81C"));
         } else {
             shotText.setTextColor(Color.parseColor("#000000"));
         }
 
-        ViewRenderable.builder()
-                .setView(this, shotText)
-                .build()
-                .thenAccept(renderable -> {
-                    shotInfoRenderable = renderable;
-                    renderable.setShadowCaster(false);
-                });
+        CompletableFuture<ViewRenderable> shotStage =
+                ViewRenderable.builder().setView(this, shotText).build();
 
-        Shot currShot = new Shot(); // The current shot
+        CompletableFuture.allOf(
+                shotStage)
+                .handle(
+                        (notUsed, throwable) -> {
+                            // When you build a Renderable, Sceneform loads its resources in the background while
+                            // returning a CompletableFuture. Call handle(), thenAccept(), or check isDone()
+                            // before calling get().
 
-        // Create the Anchor.
-        currShot.setAnchor(firstHit.createAnchor());
-        currShot.setNode(new AnchorNode(currShot.getAnchor()));
-        currShot.getNode().setParent(arFragment.getArSceneView().getScene());
+                            if (throwable != null) {
+                                return null;
+                            }
 
-        // Create the transformable andy and add it to the anchor.
-        currShot.setModel(new TransformableNode(arFragment.getTransformationSystem()));
-        currShot.getModel().setRenderable(andyRenderable);
+                            try {
+                                shotInfoRenderable = shotStage.get();
 
-        currShot.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
-        currShot.getInfo().setRenderable(shotInfoRenderable);
+                                shotInfoRenderable.setShadowCaster(false);
 
-        currShot.getModel().getScaleController().setMinScale(0.1f);
-        currShot.getModel().getScaleController().setMaxScale(2.0f);
-        currShot.getModel().setLocalScale(new Vector3(0.2f, 0.2f, 0.2f));
-        //Vector3 pos = andy.getLocalPosition();
-        //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
-        currShot.getModel().setLocalPosition(position);
+                                // Create the Anchor.
+                                currShot.setAnchor(firstHit.createAnchor());
+                                currShot.setNode(new AnchorNode(currShot.getAnchor()));
+                                currShot.getNode().setParent(arFragment.getArSceneView().getScene());
 
-        currShot.getInfo().setLocalPosition(new Vector3(position.x, position.y + 0.1f, position.z));
+                                // Create the transformable andy and add it to the anchor.
+                                currShot.setModel(new TransformableNode(arFragment.getTransformationSystem()));
+                                currShot.getModel().setRenderable(andyRenderable);
 
-        currShot.getModel().setParent(currShot.getNode());
-        currShot.getInfo().setParent(currShot.getNode());
+                                currShot.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
+                                currShot.getInfo().setRenderable(shotInfoRenderable);
 
-        currShot.setTime(System.nanoTime());
-        game.getShotList().add(currShot);
+                                currShot.getModel().getScaleController().setMinScale(0.1f);
+                                currShot.getModel().getScaleController().setMaxScale(2.0f);
+                                currShot.getModel().setLocalScale(new Vector3(0.2f, 0.2f, 0.2f));
+                                //Vector3 pos = andy.getLocalPosition();
+                                //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
+                                currShot.getModel().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos, currShot.zPos));
 
-        TestClass testClass = new TestClass("AMIGO", 0.1234);
-        //dbShotsRef.child("xd").setValue(testClass);
-        dbShotsRef.push().setValue(testClass);
+                                currShot.getInfo().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos + 0.1f, currShot.zPos));
+
+                                currShot.getModel().setParent(currShot.getNode());
+                                currShot.getInfo().setParent(currShot.getNode());
+
+                                game.getShotList().add(currShot);
+                            } catch (InterruptedException | ExecutionException ex) {
+                            }
+
+                            return null;
+                        });
     }
 
     // Called when there is a goal
-    public void goal(String player, String team) {
+    public void newGoal(Goal currGoal) {
 
         // Delete old scoreBug
         game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
         game.getScoreBug().setRenderable(null);
         game.getScoreBugNode().getAnchor().detach();
 
-        if (team == game.getHomeTeam()) {
+        if (currGoal.team == game.getHomeTeam()) {
             game.setHomeScore(game.getHomeScore() + 1);
-        } else if (team == game.getAwayTeam()) {
+        } else if (currGoal.team == game.getAwayTeam()) {
             game.setAwayScore(game.getAwayScore() + 1);
         }
 
@@ -406,61 +470,75 @@ public class MainActivity extends AppCompatActivity {
         scoreText.setLayoutParams(lp);
 
         // Set text to display in TextView
-        String temp = "GOAL " + team + "\n" + player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
+        String temp = "GOAL " + currGoal.team + "\n" + currGoal.player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
         goalText.setText(temp);
         scoreText.setText(game.getHomeTeam() + " " + game.getHomeScore() + " - " + game.getAwayScore() + " " + game.getAwayTeam());
 
         // Set a text color for TextView text
-        if (team == "Detroit") {
+        if (currGoal.team == "Detroit") {
             goalText.setTextColor(Color.parseColor("#CE1126"));
-        } else if (team == "Maple Leafs") {
+        } else if (currGoal.team == "Maple Leafs") {
             goalText.setTextColor(Color.parseColor("#003E7E"));
-        } else if (team == "Sharks") {
+        } else if (currGoal.team == "Sharks") {
             goalText.setTextColor(Color.parseColor("#006D75"));
-        } else if (team == "Boston") {
+        } else if (currGoal.team == "Boston") {
             goalText.setTextColor(Color.parseColor("#FFB81C"));
         } else {
             goalText.setTextColor(Color.parseColor("#000000"));
         }
         scoreText.setTextColor(Color.parseColor("#000000"));
 
-        ViewRenderable.builder()
-                .setView(this, goalText)
-                .build()
-                .thenAccept(renderable -> {
-                    goalInfoRenderable = renderable;
-                    renderable.setShadowCaster(false);
-                });
+        CompletableFuture<ViewRenderable> goalStage =
+                ViewRenderable.builder().setView(this, goalText).build();
 
-        ViewRenderable.builder()
-                .setView(this, scoreText)
-                .build()
-                .thenAccept(renderable -> {
-                    scoreBugRenderable = renderable;
-                    renderable.setShadowCaster(false);
-                });
+        CompletableFuture<ViewRenderable> scoreStage =
+                ViewRenderable.builder().setView(this, scoreText).build();
 
-        // Create the Anchor.
-        Anchor anchor = firstHit.createAnchor();
-        Anchor anchor1 = firstHit.createAnchor();
-        game.setGoalInfoNode(new AnchorNode(anchor));
-        game.setScoreBugNode(new AnchorNode(anchor1));
-        game.getGoalInfoNode().setParent(arFragment.getArSceneView().getScene());
-        game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
+        CompletableFuture.allOf(
+                scoreStage)
+                .handle(
+                        (notUsed, throwable) -> {
+                            // When you build a Renderable, Sceneform loads its resources in the background while
+                            // returning a CompletableFuture. Call handle(), thenAccept(), or check isDone()
+                            // before calling get().
 
-        game.setGoalInfo(new TransformableNode(arFragment.getTransformationSystem()));
-        game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
-        game.getGoalInfo().setRenderable(goalInfoRenderable);
-        game.getScoreBug().setRenderable(scoreBugRenderable);
+                            if (throwable != null) {
+                                return null;
+                            }
 
-        game.getGoalInfo().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
-        game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+                            try {
+                                goalInfoRenderable = goalStage.get();
+                                scoreBugRenderable = scoreStage.get();
 
-        game.getGoalInfo().setParent(game.getGoalInfoNode());
-        game.getScoreBug().setParent(game.getScoreBugNode());
+                                goalInfoRenderable.setShadowCaster(false);
+                                scoreBugRenderable.setShadowCaster(false);
+
+                                // Create the Anchor.
+                                Anchor anchor = firstHit.createAnchor();
+                                Anchor anchor1 = firstHit.createAnchor();
+                                game.getGoal().setNode(new AnchorNode(anchor));
+                                game.setScoreBugNode(new AnchorNode(anchor1));
+                                game.getGoal().getNode().setParent(arFragment.getArSceneView().getScene());
+                                game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
+
+                                game.getGoal().setInfo(new TransformableNode(arFragment.getTransformationSystem()));
+                                game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
+                                game.getGoal().getInfo().setRenderable(goalInfoRenderable);
+                                game.getScoreBug().setRenderable(scoreBugRenderable);
+
+                                game.getGoal().getInfo().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+                                game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+
+                                game.getGoal().getInfo().setParent(game.getGoal().getNode());
+                                game.getScoreBug().setParent(game.getScoreBugNode());
+                            } catch (InterruptedException | ExecutionException ex) {
+                            }
+
+                            return null;
+                        });
     }
 
-    public void newEjection(String player, String team, Vector3 position) { // Called when a player is ejected from play
+    public void newEjection(Ejection currEjection) { // Called when a player is ejected from play
 
         // Create a TextView programmatically.
         TextView ejectionText = new TextView(getApplicationContext());
@@ -474,51 +552,65 @@ public class MainActivity extends AppCompatActivity {
         ejectionText.setLayoutParams(lp);
 
         // Set text to display in TextView
-        ejectionText.setText(player);
+        ejectionText.setText(currEjection.player);
 
         // Set a text color for TextView text
-        if (team == "Detroit") {
+        if (currEjection.team == "Detroit") {
             ejectionText.setTextColor(Color.parseColor("#CE1126"));
-        } else if (team == "Maple Leafs") {
+        } else if (currEjection.team == "Maple Leafs") {
             ejectionText.setTextColor(Color.parseColor("#003E7E"));
-        } else if (team == "Sharks") {
+        } else if (currEjection.team == "Sharks") {
             ejectionText.setTextColor(Color.parseColor("#006D75"));
-        } else if (team == "Boston") {
+        } else if (currEjection.team == "Boston") {
             ejectionText.setTextColor(Color.parseColor("#FFB81C"));
         } else {
             ejectionText.setTextColor(Color.parseColor("#000000"));
         }
 
-        ViewRenderable.builder()
-                .setView(this, ejectionText)
-                .build()
-                .thenAccept(renderable -> {
-                    ejectionInfoRenderable = renderable;
-                    renderable.setShadowCaster(false);
-                });
+        CompletableFuture<ViewRenderable> ejectionStage =
+                ViewRenderable.builder().setView(this, ejectionText).build();
 
-        Ejection currEjection = new Ejection(); // The current shot
+        CompletableFuture.allOf(
+                ejectionStage)
+                .handle(
+                        (notUsed, throwable) -> {
+                            // When you build a Renderable, Sceneform loads its resources in the background while
+                            // returning a CompletableFuture. Call handle(), thenAccept(), or check isDone()
+                            // before calling get().
 
-        // Create the Anchor.
-        currEjection.setAnchor(firstHit.createAnchor());
-        currEjection.setNode(new AnchorNode(currEjection.getAnchor()));
-        currEjection.getNode().setParent(arFragment.getArSceneView().getScene());
+                            if (throwable != null) {
+                                return null;
+                            }
 
-        // Create the transformable andy and add it to the anchor.
-        currEjection.setModel(new TransformableNode(arFragment.getTransformationSystem()));
-        currEjection.getModel().setRenderable(ejectionModelRenderable);
+                            try {
+                                ejectionInfoRenderable = ejectionStage.get();
 
-        currEjection.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
-        currEjection.getInfo().setRenderable(ejectionInfoRenderable);
+                                ejectionInfoRenderable.setShadowCaster(false);
 
-        currEjection.getModel().setLocalPosition(position);
+                                // Create the Anchor.
+                                currEjection.setAnchor(firstHit.createAnchor());
+                                currEjection.setNode(new AnchorNode(currEjection.getAnchor()));
+                                currEjection.getNode().setParent(arFragment.getArSceneView().getScene());
 
-        currEjection.getInfo().setLocalPosition(new Vector3(position.x, position.y + 0.1f, position.z));
+                                // Create the transformable andy and add it to the anchor.
+                                currEjection.setModel(new TransformableNode(arFragment.getTransformationSystem()));
+                                currEjection.getModel().setRenderable(ejectionModelRenderable);
 
-        currEjection.getModel().setParent(currEjection.getNode());
-        currEjection.getInfo().setParent(currEjection.getNode());
+                                currEjection.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
+                                currEjection.getInfo().setRenderable(ejectionInfoRenderable);
 
-        currEjection.setTime(System.nanoTime());
-        game.getEjectionList().add(currEjection);
+                                currEjection.getModel().setLocalPosition(new Vector3(currEjection.xPos, currEjection.yPos, currEjection.zPos));
+
+                                currEjection.getInfo().setLocalPosition(new Vector3(currEjection.xPos, currEjection.yPos + 0.1f, currEjection.zPos));
+
+                                currEjection.getModel().setParent(currEjection.getNode());
+                                currEjection.getInfo().setParent(currEjection.getNode());
+
+                                game.getEjectionList().add(currEjection);
+                            } catch (InterruptedException | ExecutionException ex) {
+                            }
+
+                            return null;
+                        });
     }
 }
