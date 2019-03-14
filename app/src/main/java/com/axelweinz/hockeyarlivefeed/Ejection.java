@@ -3,30 +3,56 @@ package com.axelweinz.hockeyarlivefeed;
 import com.google.ar.core.Anchor;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.ux.TransformableNode;
+import com.google.firebase.database.Exclude;
 
 public class Ejection { // Class to store information about a rendered ejection
-    private long time;
-    private TransformableNode info;
-    private TransformableNode model;
-    private Anchor anchor;
-    private AnchorNode node;
+    public long time;
+    public String player;
+    public String team;
+    public float xPos;
+    public float yPos;
+    public float zPos;
+
+    @Exclude
+    public TransformableNode info;
+    @Exclude
+    public TransformableNode model;
+    @Exclude
+    public Anchor anchor;
+    @Exclude
+    public AnchorNode node;
+
+    public Ejection() {}
+
+    public Ejection(long time, String player, String team, float xPos, float yPos, float zPos) {
+        this.time = time;
+        this.player = player;
+        this.team = team;
+        this.xPos = xPos;
+        this.yPos = yPos;
+        this.zPos = zPos;
+    }
 
     public long getTime() {
         return this.time;
     }
 
+    @Exclude
     public TransformableNode getInfo() {
         return this.info;
     }
 
+    @Exclude
     public TransformableNode getModel() {
         return this.model;
     }
 
+    @Exclude
     public Anchor getAnchor() {
         return this.anchor;
     }
 
+    @Exclude
     public AnchorNode getNode() {
         return this.node;
     }
@@ -57,7 +83,6 @@ public class Ejection { // Class to store information about a rendered ejection
                 this.info.getScene().onRemoveChild(this.info.getParent());
                 this.model.getScene().onRemoveChild(this.model.getParent());
             } catch (NullPointerException e) {
-                // Bug: the first ejection doesn't render a ViewText and throws this
             } finally {
                 this.info.setRenderable(null);
                 this.model.setRenderable(null);

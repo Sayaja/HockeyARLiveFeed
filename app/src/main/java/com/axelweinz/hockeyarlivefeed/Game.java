@@ -14,11 +14,9 @@ public class Game { // Class to store general information about the game
     private TransformableNode scoreBug;
     private AnchorNode scoreBugNode;
 
-    private TransformableNode goalInfo;
-    private AnchorNode goalInfoNode;
-
     private List shotList = new ArrayList(); // Store all shots that are currently rendered and displayed
     private List ejectionList = new ArrayList(); // Store all ejections that are currently rendered and displayed
+    private Goal goal = new Goal();
 
     private long gameTime;
     private String homeTeam;
@@ -26,20 +24,20 @@ public class Game { // Class to store general information about the game
     private int homeScore = 0;
     private int awayScore = 0;
 
+    public Goal getGoal() {
+        return goal;
+    }
+
+    public void setGoal(Goal goal) {
+        this.goal = goal;
+    }
+
     public TransformableNode getScoreBug() {
         return this.scoreBug;
     }
 
     public AnchorNode getScoreBugNode() {
         return this.scoreBugNode;
-    }
-
-    public TransformableNode getGoalInfo() {
-        return this.goalInfo;
-    }
-
-    public AnchorNode getGoalInfoNode() {
-        return this.goalInfoNode;
     }
 
     public List getShotList() {
@@ -76,14 +74,6 @@ public class Game { // Class to store general information about the game
 
     public void setScoreBugNode(AnchorNode scoreBugNode) {
         this.scoreBugNode = scoreBugNode;
-    }
-
-    public void setGoalInfo(TransformableNode goalInfo) {
-        this.goalInfo = goalInfo;
-    }
-
-    public void setGoalInfoNode(AnchorNode goalInfoNode) {
-        this.goalInfoNode = goalInfoNode;
     }
 
     public void setShotList(List shotList) {
