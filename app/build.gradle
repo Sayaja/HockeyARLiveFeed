@@ -54,3 +54,23 @@ sceneform.asset('sampledata/hockeyRink/hockeyrink.fbx',
         'default',
         'sampledata/hockeyRink/hockeyrink.sfa',
         'src/main/res/raw/hockeyrink')
+
+sceneform.asset('sampledata/newRink/newrink.fbx',
+        'default',
+        'sampledata/newRink/newrink.sfa',
+        'src/main/assets/newrink')
+
+sceneform.asset('sampledata/hockeyStick/hockeystick.obj',
+        'default',
+        'sampledata/hockeyStick/hockeystick.sfa',
+        'src/main/res/raw/hockeystick')
+
+sceneform.asset('sampledata/whistle/whistle.obj',
+        'default',
+        'sampledata/whistle/whistle.sfa',
+        'src/main/res/raw/whistle')
+
+sceneform.asset('sampledata/puck/puck.obj',
+        'default',
+        'sampledata/puck/puck.sfa',
+        'src/main/res/raw/puck')

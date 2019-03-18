@@ -21,8 +21,26 @@ public class Game { // Class to store general information about the game
     private long gameTime;
     private String homeTeam;
     private String awayTeam;
+    private String homeColor;
+    private String awayColor;
     private int homeScore = 0;
     private int awayScore = 0;
+
+    public String getHomeColor() {
+        return homeColor;
+    }
+
+    public void setHomeColor(String homeColor) {
+        this.homeColor = homeColor;
+    }
+
+    public String getAwayColor() {
+        return awayColor;
+    }
+
+    public void setAwayColor(String awayColor) {
+        this.awayColor = awayColor;
+    }
 
     public Goal getGoal() {
         return goal;

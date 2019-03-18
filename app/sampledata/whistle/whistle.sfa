@@ -1,0 +1,43 @@
+{
+  materials: [
+    {
+      name: '_crayfishdiffuse',
+      parameters: [
+        {
+          baseColor: null,
+        },
+        {
+          baseColorTint: [
+            0,
+            0.6784,
+            0.82750000000000001,
+            1,
+          ],
+        },
+        {
+          metallic: 1,
+        },
+        {
+          roughness: 0.25,
+        },
+        {
+          opacity: null,
+        },
+      ],
+      source: 'build/sceneform_sdk/default_materials/obj_material.sfm',
+    },
+  ],
+  model: {
+    attributes: [
+      'Position',
+      'TexCoord',
+      'Orientation',
+    ],
+    collision: {},
+    file: 'sampledata/whistle/whistle.obj',
+    name: 'whistle',
+    recenter: 'root',
+    scale: 5.0000000000000004e-06,
+  },
+  version: '0.54:2',
+}
