@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Html;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -52,11 +53,12 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ModelRenderable andyRenderable;
     private ModelRenderable hockeyRinkRenderable;
+    private ModelRenderable hockeyStickRenderable;
+    private ModelRenderable whistleRenderable;
+    private ModelRenderable puckRenderable;
     private ViewRenderable shotInfoRenderable;
     private ViewRenderable ejectionInfoRenderable;
-    private ModelRenderable ejectionModelRenderable;
     private ViewRenderable goalInfoRenderable;
     private ViewRenderable scoreBugRenderable;
 
@@ -114,11 +116,13 @@ public class MainActivity extends AppCompatActivity {
         // Placeholder teams and score
         game.setHomeTeam("Detroit");
         game.setAwayTeam("Maple Leafs");
+        game.setHomeColor("#CE1126");
+        game.setAwayColor("#003E7E");
         game.setHomeScore(0);
         game.setAwayScore(0);
 
         ModelRenderable.builder()
-                .setSource(this, R.raw.hockeyrinkold)
+                .setSource(this, R.raw.newrink)
                 .build()
                 .thenAccept(renderable -> hockeyRinkRenderable = renderable)
                 .exceptionally(
@@ -128,9 +132,19 @@ public class MainActivity extends AppCompatActivity {
                         });
 
         ModelRenderable.builder()
-                .setSource(this, R.raw.andy)
+                .setSource(this, R.raw.hockeystick)
                 .build()
-                .thenAccept(renderable -> andyRenderable = renderable)
+                .thenAccept(renderable -> hockeyStickRenderable = renderable)
+                .exceptionally(
+                        throwable -> {
+                            Log.e(TAG, "Unable to load Renderable.", throwable);
+                            return null;
+                        });
+
+        ModelRenderable.builder()
+                .setSource(this, R.raw.whistle)
+                .build()
+                .thenAccept(renderable -> whistleRenderable = renderable)
                 .exceptionally(
                         throwable -> {
                             Log.e(TAG, "Unable to load Renderable.", throwable);
@@ -148,9 +162,8 @@ public class MainActivity extends AppCompatActivity {
         // Apply the layout parameters to TextView widget
         scoreText.setLayoutParams(lp);
 
-        String tempScore = game.getHomeTeam() + " " + game.getHomeScore() + " - " + game.getAwayScore() + " " + game.getAwayTeam();
-        scoreText.setText(tempScore);
-        scoreText.setTextColor(Color.parseColor("#000000"));
+        String tempScore = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>" + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">" + game.getAwayTeam() + "</font>";
+        scoreText.setText(Html.fromHtml(tempScore));
 
         ViewRenderable.builder()
                 .setView(this, scoreText)
@@ -160,15 +173,15 @@ public class MainActivity extends AppCompatActivity {
                     renderable.setShadowCaster(false);
                 });
 
-        MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new com.google.ar.sceneform.rendering.Color(255,40,0))
-                .thenAccept(
-                        material -> {
-                            Vector3 vector3 = new Vector3(0.05f, 0.05f,0.05f);
-                            ejectionModelRenderable = ShapeFactory.makeCube(vector3,
-                                    Vector3.zero(), material);
-                            ejectionModelRenderable.setShadowCaster(false);
-                            ejectionModelRenderable.setShadowReceiver(false);
-                        });
+//        MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new com.google.ar.sceneform.rendering.Color(255,40,0))
+//                .thenAccept(
+//                        material -> {
+//                            Vector3 vector3 = new Vector3(0.05f, 0.05f,0.05f);
+//                            ejectionModelRenderable = ShapeFactory.makeCube(vector3,
+//                                    Vector3.zero(), material);
+//                            ejectionModelRenderable.setShadowCaster(false);
+//                            ejectionModelRenderable.setShadowReceiver(false);
+//                        });
 
         // arFragment.getArSceneView(). <-- To get access to the ARCore session and more
         arFragment.setOnTapArPlaneListener(
@@ -272,12 +285,13 @@ public class MainActivity extends AppCompatActivity {
                     game.getScoreBug().setRenderable(scoreBugRenderable);
 
                     // Set correct rotation of model, then disable rotation with twist
-                    hockeyRink.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), -90f));
+                    //hockeyRink.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), -90f));
                     hockeyRink.getRotationController().setEnabled(false);
                     hockeyRink.getTranslationController().setEnabled(false);
-                    hockeyRink.getScaleController().setMinScale(0.4f);
+                    hockeyRink.getScaleController().setMinScale(0.01f);
                     hockeyRink.getScaleController().setMaxScale(2.0f);
-                    hockeyRink.setLocalScale(new Vector3(0.8f, 0.8f, 0.8f));
+                    hockeyRink.setLocalScale(new Vector3(0.015f, 0.015f, 0.015f));
+                    hockeyRink.getScaleController().setEnabled(false);
                     rinkPos = hockeyRink.getLocalPosition();
                     Vector3 temp = new Vector3(rinkPos.x + 0, rinkPos.y + (rinkPos.y+0)/10f, rinkPos.z + 0);
                     //hockeyRink.setLocalPosition(temp);
@@ -306,15 +320,16 @@ public class MainActivity extends AppCompatActivity {
         String team = players.get(player);
 
         // Generate a random position of the event
-        float minZ = -0.40f;
-        float maxZ = -0.05f;
+        float minZ = -0.13f;
+        float maxZ = 0.13f;
         Random r = new Random();
         float rZ = minZ + r.nextFloat() * (maxZ - minZ);
-        float minX = -0.35f;
-        float maxX = 0.35f;
+        float minX = -0.3f;
+        float maxX = 0.3f;
         r = new Random();
         float rX = minX + r.nextFloat() * (maxX - minX);
         Vector3 pos = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
+        //Vector3 pos = new Vector3(rinkPos.x + 0.3f, rinkPos.y, rinkPos.z + 0.13f);
 
         // Remove the goal view when next event occurs (the game has resumed)
         try {
@@ -378,14 +393,10 @@ public class MainActivity extends AppCompatActivity {
         shotText.setText(currShot.player);
 
         // Set a text color for TextView text
-        if (currShot.team == "Detroit") {
-            shotText.setTextColor(Color.parseColor("#CE1126"));
-        } else if (currShot.team == "Maple Leafs") {
-            shotText.setTextColor(Color.parseColor("#003E7E"));
-        } else if (currShot.team == "Sharks") {
-            shotText.setTextColor(Color.parseColor("#006D75"));
-        } else if (currShot.team == "Boston") {
-            shotText.setTextColor(Color.parseColor("#FFB81C"));
+        if (currShot.team == game.getHomeTeam()) {
+            shotText.setTextColor(Color.parseColor(game.getHomeColor()));
+        } else if (currShot.team == game.getAwayTeam()) {
+            shotText.setTextColor(Color.parseColor(game.getAwayColor()));
         } else {
             shotText.setTextColor(Color.parseColor("#000000"));
         }
@@ -417,18 +428,19 @@ public class MainActivity extends AppCompatActivity {
 
                                 // Create the transformable andy and add it to the anchor.
                                 currShot.setModel(new TransformableNode(arFragment.getTransformationSystem()));
-                                currShot.getModel().setRenderable(andyRenderable);
+                                currShot.getModel().setRenderable(hockeyStickRenderable);
 
                                 currShot.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
                                 currShot.getInfo().setRenderable(shotInfoRenderable);
 
-                                currShot.getModel().getScaleController().setMinScale(0.1f);
+                                currShot.getModel().getScaleController().setMinScale(0.01f);
                                 currShot.getModel().getScaleController().setMaxScale(2.0f);
-                                currShot.getModel().setLocalScale(new Vector3(0.2f, 0.2f, 0.2f));
+                                currShot.getModel().setLocalScale(new Vector3(0.06f, 0.06f, 0.06f));
+                                currShot.getModel().getScaleController().setEnabled(false);
+                                currShot.getModel().getRotationController().setEnabled(false);
                                 //Vector3 pos = andy.getLocalPosition();
                                 //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
                                 currShot.getModel().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos, currShot.zPos));
-
                                 currShot.getInfo().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos + 0.1f, currShot.zPos));
 
                                 currShot.getModel().setParent(currShot.getNode());
@@ -472,7 +484,8 @@ public class MainActivity extends AppCompatActivity {
         // Set text to display in TextView
         String temp = "GOAL " + currGoal.team + "\n" + currGoal.player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
         goalText.setText(temp);
-        scoreText.setText(game.getHomeTeam() + " " + game.getHomeScore() + " - " + game.getAwayScore() + " " + game.getAwayTeam());
+        String tempScore = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>" + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">" + game.getAwayTeam() + "</font>";
+        scoreText.setText(Html.fromHtml(tempScore));
 
         // Set a text color for TextView text
         if (currGoal.team == "Detroit") {
@@ -555,14 +568,10 @@ public class MainActivity extends AppCompatActivity {
         ejectionText.setText(currEjection.player);
 
         // Set a text color for TextView text
-        if (currEjection.team == "Detroit") {
-            ejectionText.setTextColor(Color.parseColor("#CE1126"));
-        } else if (currEjection.team == "Maple Leafs") {
-            ejectionText.setTextColor(Color.parseColor("#003E7E"));
-        } else if (currEjection.team == "Sharks") {
-            ejectionText.setTextColor(Color.parseColor("#006D75"));
-        } else if (currEjection.team == "Boston") {
-            ejectionText.setTextColor(Color.parseColor("#FFB81C"));
+        if (currEjection.team == game.getHomeTeam()) {
+            ejectionText.setTextColor(Color.parseColor(game.getHomeColor()));
+        } else if (currEjection.team == game.getAwayTeam()) {
+            ejectionText.setTextColor(Color.parseColor(game.getAwayColor()));
         } else {
             ejectionText.setTextColor(Color.parseColor("#000000"));
         }
@@ -592,9 +601,15 @@ public class MainActivity extends AppCompatActivity {
                                 currEjection.setNode(new AnchorNode(currEjection.getAnchor()));
                                 currEjection.getNode().setParent(arFragment.getArSceneView().getScene());
 
-                                // Create the transformable andy and add it to the anchor.
+                                // Create the transformable and add it to the anchor.
                                 currEjection.setModel(new TransformableNode(arFragment.getTransformationSystem()));
-                                currEjection.getModel().setRenderable(ejectionModelRenderable);
+                                currEjection.getModel().setRenderable(whistleRenderable);
+                                currEjection.getModel().getScaleController().setMinScale(0.01f);
+                                currEjection.getModel().getScaleController().setMaxScale(2.0f);
+                                currEjection.getModel().setLocalScale(new Vector3(0.03f, 0.03f, 0.03f));
+                                currEjection.getModel().setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0), 90));
+                                currEjection.getModel().getRotationController().setEnabled(false);
+                                currEjection.getModel().getScaleController().setEnabled(false);
 
                                 currEjection.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
                                 currEjection.getInfo().setRenderable(ejectionInfoRenderable);
