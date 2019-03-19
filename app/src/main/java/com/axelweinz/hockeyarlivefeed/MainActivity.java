@@ -59,6 +59,8 @@ public class MainActivity extends AppCompatActivity {
     private ModelRenderable puckRenderable;
     private ViewRenderable shotInfoRenderable;
     private ViewRenderable ejectionInfoRenderable;
+    private ViewRenderable ppHomeRenderable;
+    private ViewRenderable ppAwayRenderable;
     private ViewRenderable goalInfoRenderable;
     private ViewRenderable scoreBugRenderable;
 
@@ -72,20 +74,204 @@ public class MainActivity extends AppCompatActivity {
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
-    private Handler handler = new Handler();
-    private Runnable runnable = new Runnable() { // Runnable for API call or generate an event
+    private Handler handlerScoreBug = new Handler();
+    private Runnable runScoreBug = new Runnable() { // Updating scoreBug every second
         @Override
         public void run() {
-            //event();
+            double secPassed = (System.nanoTime() - game.getGameTime()) / 1_000_000_000.0;
+            double minPassed = secPassed / 60;
+            int min = 20 - (int)(secPassed/60) - 1;
+            int sec = 60 * ((int) minPassed + 1) - (int) secPassed - 1;
+            String clock;
+            if (sec < 10) {
+                clock = Integer.toString(min) + ":0" + Integer.toString(sec);
+            } else {
+                clock = Integer.toString(min) + ":" + Integer.toString(sec);
+            }
 
-            handler.postDelayed(this, 4000);
+            String text = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>"
+                    + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">"
+                    + game.getAwayTeam() + "</font> <font color=#ffffff>" + clock + "</font>";
+            game.getScoreText().setText(Html.fromHtml(text));
+
+            CompletableFuture<ViewRenderable> scoreStage =
+                    ViewRenderable.builder().setView(getApplicationContext(), game.getScoreText()).build();
+
+            CompletableFuture.allOf(
+                    scoreStage)
+                    .handle(
+                            (notUsed, throwable) -> {
+                                if (throwable != null) {
+                                    return null;
+                                }
+
+                                try {
+                                    scoreBugRenderable = scoreStage.get();
+
+                                    scoreBugRenderable.setShadowCaster(false);
+
+                                    try { // Remove old scoreBug
+                                        game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
+                                        game.getScoreBug().setRenderable(null);
+                                        game.getScoreBugNode().getAnchor().detach();
+                                    } catch (NullPointerException e) {
+                                    }
+
+                                    // Create the Anchor.
+                                    Anchor anchor = firstHit.createAnchor();
+                                    game.setScoreBugNode(new AnchorNode(anchor));
+                                    game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
+
+                                    game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
+                                    game.getScoreBug().setRenderable(scoreBugRenderable);
+
+                                    game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+
+                                    game.getScoreBug().setParent(game.getScoreBugNode());
+
+                                    handlerScoreBug.postDelayed(this, 1000);
+                                } catch (InterruptedException | ExecutionException ex) {
+                                }
+
+                                return null;
+                            });
+        }
+    };
+    private Handler ppHomeHandler = new Handler();
+    private Runnable ppHomeRun = new Runnable() {
+        @Override
+        public void run() {
+            double secPassed = (System.nanoTime() - game.getHomePPStart()) / 1_000_000_000.0;
+            double minPassed = secPassed / 60;
+            int min = 2 - (int)(secPassed/60) - 1;
+            int sec = 60 * ((int) minPassed + 1) - (int) secPassed - 1;
+            String clock;
+            if (sec < 10) {
+                clock = Integer.toString(min) + ":0" + Integer.toString(sec);
+            } else {
+                clock = Integer.toString(min) + ":" + Integer.toString(sec);
+            }
+
+            try { // Clear PP anchors
+                game.getHomePP().getScene().onRemoveChild(game.getHomePP().getParent());
+                game.getHomePP().setRenderable(null);
+                game.getHomePPNode().getAnchor().detach();
+            } catch (NullPointerException e) {
+            }
+
+            if (secPassed < 120) {
+                String text = "<font color="+game.getHomeColor()+">" + "PP</font> <font color=#ffffff>"+clock+"</font>";
+                game.getHomePPText().setText(Html.fromHtml(text));
+
+                CompletableFuture<ViewRenderable> ppStage =
+                        ViewRenderable.builder().setView(getApplicationContext(), game.getHomePPText()).build();
+
+                CompletableFuture.allOf(
+                        ppStage)
+                        .handle(
+                                (notUsed, throwable) -> {
+                                    if (throwable != null) {
+                                        return null;
+                                    }
+
+                                    try {
+                                        ppHomeRenderable = ppStage.get();
+
+                                        ppHomeRenderable.setShadowCaster(false);
+
+                                        // Create the Anchor.
+                                        Anchor anchor = firstHit.createAnchor();
+                                        game.setHomePPNode(new AnchorNode(anchor));
+                                        game.getHomePPNode().setParent(arFragment.getArSceneView().getScene());
+
+                                        game.setHomePP(new TransformableNode(arFragment.getTransformationSystem()));
+                                        game.getHomePP().setRenderable(scoreBugRenderable);
+
+                                        game.getHomePP().setLocalPosition(new Vector3(rinkPos.x - 0.15f, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+
+                                        game.getHomePP().setParent(game.getHomePPNode());
+
+                                        ppHomeHandler.postDelayed(this, 1000);
+                                    } catch (InterruptedException | ExecutionException ex) {
+                                    }
+
+                                    return null;
+                                });
+            } else { // PP ended
+                game.setHomePPBool(false);
+            }
+        }
+    };
+    private Handler ppAwayHandler = new Handler();
+    private Runnable ppAwayRun = new Runnable() {
+        @Override
+        public void run() {
+            double secPassed = (System.nanoTime() - game.getAwayPPStart()) / 1_000_000_000.0;
+            double minPassed = secPassed / 60;
+            int min = 2 - (int)(secPassed/60) - 1;
+            int sec = 60 * ((int) minPassed + 1) - (int) secPassed - 1;
+            String clock;
+            if (sec < 10) {
+                clock = Integer.toString(min) + ":0" + Integer.toString(sec);
+            } else {
+                clock = Integer.toString(min) + ":" + Integer.toString(sec);
+            }
+
+            try { // Clear PP anchors
+                game.getAwayPP().getScene().onRemoveChild(game.getAwayPP().getParent());
+                game.getAwayPP().setRenderable(null);
+                game.getAwayPPNode().getAnchor().detach();
+            } catch (NullPointerException e) {
+            }
+
+            if (secPassed < 120) {
+                String text = "<font color="+game.getAwayColor()+">" + "PP</font> <font color=#ffffff>"+clock+"</font>";
+                game.getAwayPPText().setText(Html.fromHtml(text));
+
+                CompletableFuture<ViewRenderable> ppStage =
+                        ViewRenderable.builder().setView(getApplicationContext(), game.getAwayPPText()).build();
+
+                CompletableFuture.allOf(
+                        ppStage)
+                        .handle(
+                                (notUsed, throwable) -> {
+                                    if (throwable != null) {
+                                        return null;
+                                    }
+
+                                    try {
+                                        ppAwayRenderable = ppStage.get();
+
+                                        ppAwayRenderable.setShadowCaster(false);
+
+                                        // Create the Anchor.
+                                        Anchor anchor = firstHit.createAnchor();
+                                        game.setAwayPPNode(new AnchorNode(anchor));
+                                        game.getAwayPPNode().setParent(arFragment.getArSceneView().getScene());
+
+                                        game.setAwayPP(new TransformableNode(arFragment.getTransformationSystem()));
+                                        game.getAwayPP().setRenderable(scoreBugRenderable);
+
+                                        game.getAwayPP().setLocalPosition(new Vector3(rinkPos.x - 0.05f, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+
+                                        game.getAwayPP().setParent(game.getAwayPPNode());
+
+                                        ppAwayHandler.postDelayed(this, 1000);
+                                    } catch (InterruptedException | ExecutionException ex) {
+                                    }
+
+                                    return null;
+                                });
+            } else { // PP ended
+                game.setAwayPPBool(false);
+            }
         }
     };
 
     private Vector3 rinkPos; // The position of the rink
     private Integer modelCount = 0; // Only 1 rink to be displayed
 
-    private String[] teams = {"Detroit", "Maple Leafs"}; //, "Sharks", "Boston"}; // Placeholder teams
+    private String[] teams = {"DRW", "TML"}; //, "Sharks", "Boston"}; // Placeholder teams
     private String[] playersArray = {"N. Kronwall", "G. Nyquist", "D. Larkin", "T. Bertuzzi", "J. Franzén",
             "A. Matthews", "W. Nylander", "M. Marner", "J. Gardiner", "J. Tavares"}; // Placeholder players
     //, "E. Karlsson", "J. Thornton",
@@ -104,6 +290,8 @@ public class MainActivity extends AppCompatActivity {
 
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
 
+        game.setParams(getApplicationContext(), "DRW", "TML", "#CE1126", "#003E7E"); // Set starting parameters
+
         // Assign teams to the players
         int teamCount = 0;
         for (int i=0;i<playersArray.length;i++) {
@@ -112,14 +300,6 @@ public class MainActivity extends AppCompatActivity {
                 teamCount += 1;
             }
         }
-
-        // Placeholder teams and score
-        game.setHomeTeam("Detroit");
-        game.setAwayTeam("Maple Leafs");
-        game.setHomeColor("#CE1126");
-        game.setAwayColor("#003E7E");
-        game.setHomeScore(0);
-        game.setAwayScore(0);
 
         ModelRenderable.builder()
                 .setSource(this, R.raw.newrink)
@@ -151,22 +331,8 @@ public class MainActivity extends AppCompatActivity {
                             return null;
                         });
 
-        // Create a TextView programmatically.
-        TextView scoreText = new TextView(getApplicationContext());
-
-        // Create a LayoutParams for TextView
-        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
-                RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
-
-        // Apply the layout parameters to TextView widget
-        scoreText.setLayoutParams(lp);
-
-        String tempScore = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>" + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">" + game.getAwayTeam() + "</font>";
-        scoreText.setText(Html.fromHtml(tempScore));
-
         ViewRenderable.builder()
-                .setView(this, scoreText)
+                .setView(this, game.getScoreText())
                 .build()
                 .thenAccept(renderable -> {
                     scoreBugRenderable = renderable;
@@ -306,7 +472,7 @@ public class MainActivity extends AppCompatActivity {
                     // arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
                     arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
                     modelCount += 1;
-                    handler.postDelayed(runnable, 4000); // Start runnable
+                    handlerScoreBug.postDelayed(runScoreBug, 0); // Start runnable
                 });
     }
 
@@ -354,8 +520,8 @@ public class MainActivity extends AppCompatActivity {
 
         int minEvent = 0;
         int maxEvent = 20;
-        int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
-        //int randEvent = 17;
+        //int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
+        int randEvent = 19;
 
         // Random event should be generated here
         // Push to Firebase here instead of calling functions
@@ -458,9 +624,9 @@ public class MainActivity extends AppCompatActivity {
     public void newGoal(Goal currGoal) {
 
         // Delete old scoreBug
-        game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
-        game.getScoreBug().setRenderable(null);
-        game.getScoreBugNode().getAnchor().detach();
+//        game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
+//        game.getScoreBug().setRenderable(null);
+//        game.getScoreBugNode().getAnchor().detach();
 
         if (currGoal.team == game.getHomeTeam()) {
             game.setHomeScore(game.getHomeScore() + 1);
@@ -470,7 +636,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Create a TextView programmatically.
         TextView goalText = new TextView(getApplicationContext());
-        TextView scoreText = new TextView(getApplicationContext());
 
         // Create a LayoutParams for TextView
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
@@ -479,13 +644,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Apply the layout parameters to TextView widget
         goalText.setLayoutParams(lp);
-        scoreText.setLayoutParams(lp);
 
         // Set text to display in TextView
         String temp = "GOAL " + currGoal.team + "\n" + currGoal.player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
         goalText.setText(temp);
-        String tempScore = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>" + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">" + game.getAwayTeam() + "</font>";
-        scoreText.setText(Html.fromHtml(tempScore));
+        //String tempScore = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>" + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">" + game.getAwayTeam() + "</font>";
+        //game.getScoreText().setText(Html.fromHtml(tempScore));
 
         // Set a text color for TextView text
         if (currGoal.team == "Detroit") {
@@ -499,16 +663,15 @@ public class MainActivity extends AppCompatActivity {
         } else {
             goalText.setTextColor(Color.parseColor("#000000"));
         }
-        scoreText.setTextColor(Color.parseColor("#000000"));
 
         CompletableFuture<ViewRenderable> goalStage =
                 ViewRenderable.builder().setView(this, goalText).build();
 
-        CompletableFuture<ViewRenderable> scoreStage =
-                ViewRenderable.builder().setView(this, scoreText).build();
+        //CompletableFuture<ViewRenderable> scoreStage =
+        //        ViewRenderable.builder().setView(this, game.getScoreText()).build();
 
         CompletableFuture.allOf(
-                scoreStage)
+                goalStage)
                 .handle(
                         (notUsed, throwable) -> {
                             // When you build a Renderable, Sceneform loads its resources in the background while
@@ -521,29 +684,29 @@ public class MainActivity extends AppCompatActivity {
 
                             try {
                                 goalInfoRenderable = goalStage.get();
-                                scoreBugRenderable = scoreStage.get();
+                                //scoreBugRenderable = scoreStage.get();
 
                                 goalInfoRenderable.setShadowCaster(false);
-                                scoreBugRenderable.setShadowCaster(false);
+                                //scoreBugRenderable.setShadowCaster(false);
 
                                 // Create the Anchor.
                                 Anchor anchor = firstHit.createAnchor();
-                                Anchor anchor1 = firstHit.createAnchor();
+                                //Anchor anchor1 = firstHit.createAnchor();
                                 game.getGoal().setNode(new AnchorNode(anchor));
-                                game.setScoreBugNode(new AnchorNode(anchor1));
+                                //game.setScoreBugNode(new AnchorNode(anchor1));
                                 game.getGoal().getNode().setParent(arFragment.getArSceneView().getScene());
-                                game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
+                                //game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
 
                                 game.getGoal().setInfo(new TransformableNode(arFragment.getTransformationSystem()));
-                                game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
+                                //game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
                                 game.getGoal().getInfo().setRenderable(goalInfoRenderable);
-                                game.getScoreBug().setRenderable(scoreBugRenderable);
+                                //game.getScoreBug().setRenderable(scoreBugRenderable);
 
                                 game.getGoal().getInfo().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
-                                game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+                                //game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
 
                                 game.getGoal().getInfo().setParent(game.getGoal().getNode());
-                                game.getScoreBug().setParent(game.getScoreBugNode());
+                                //game.getScoreBug().setParent(game.getScoreBugNode());
                             } catch (InterruptedException | ExecutionException ex) {
                             }
 
@@ -567,7 +730,7 @@ public class MainActivity extends AppCompatActivity {
         // Set text to display in TextView
         ejectionText.setText(currEjection.player);
 
-        // Set a text color for TextView text
+        // Set a text color for TextView text & set PP
         if (currEjection.team == game.getHomeTeam()) {
             ejectionText.setTextColor(Color.parseColor(game.getHomeColor()));
         } else if (currEjection.team == game.getAwayTeam()) {
@@ -622,6 +785,21 @@ public class MainActivity extends AppCompatActivity {
                                 currEjection.getInfo().setParent(currEjection.getNode());
 
                                 game.getEjectionList().add(currEjection);
+
+                                // Check if there are any current PPs. If not, create PP
+                                if (currEjection.team == game.getHomeTeam()) {
+                                    if (!game.isHomePPBool()) {
+                                        game.setHomePPStart(currEjection.getTime());
+                                        ppHomeHandler.postDelayed(ppHomeRun, 0);
+                                        game.setHomePPBool(true);
+                                    }
+                                } else if (currEjection.team == game.getAwayTeam()) {
+                                    if (!game.isAwayPPBool()) {
+                                        game.setAwayPPStart(currEjection.getTime());
+                                        ppAwayHandler.postDelayed(ppAwayRun, 0);
+                                        game.setAwayPPBool(true);
+                                    }
+                                }
                             } catch (InterruptedException | ExecutionException ex) {
                             }
 
