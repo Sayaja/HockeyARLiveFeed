@@ -74,7 +74,14 @@ public class MainActivity extends AppCompatActivity {
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
-    private Handler handlerScoreBug = new Handler();
+    private Handler handler = new Handler();
+    private Runnable eventRunner = new Runnable() { // Generates event
+        @Override
+        public void run() {
+            event();
+            handler.postDelayed(eventRunner, 4000);
+        }
+    };
     private Runnable runScoreBug = new Runnable() { // Updating scoreBug every second
         @Override
         public void run() {
@@ -129,7 +136,7 @@ public class MainActivity extends AppCompatActivity {
 
                                     game.getScoreBug().setParent(game.getScoreBugNode());
 
-                                    handlerScoreBug.postDelayed(this, 1000);
+                                    handler.postDelayed(this, 1000);
                                 } catch (InterruptedException | ExecutionException ex) {
                                 }
 
@@ -137,7 +144,6 @@ public class MainActivity extends AppCompatActivity {
                             });
         }
     };
-    private Handler ppHomeHandler = new Handler();
     private Runnable ppHomeRun = new Runnable() {
         @Override
         public void run() {
@@ -185,13 +191,13 @@ public class MainActivity extends AppCompatActivity {
                                         game.getHomePPNode().setParent(arFragment.getArSceneView().getScene());
 
                                         game.setHomePP(new TransformableNode(arFragment.getTransformationSystem()));
-                                        game.getHomePP().setRenderable(scoreBugRenderable);
+                                        game.getHomePP().setRenderable(ppHomeRenderable);
 
-                                        game.getHomePP().setLocalPosition(new Vector3(rinkPos.x - 0.15f, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+                                        game.getHomePP().setLocalPosition(new Vector3(rinkPos.x - 0.185f, rinkPos.y + 0.23f, rinkPos.z - 0.35f));
 
                                         game.getHomePP().setParent(game.getHomePPNode());
 
-                                        ppHomeHandler.postDelayed(this, 1000);
+                                        handler.postDelayed(this, 1000);
                                     } catch (InterruptedException | ExecutionException ex) {
                                     }
 
@@ -202,7 +208,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
-    private Handler ppAwayHandler = new Handler();
     private Runnable ppAwayRun = new Runnable() {
         @Override
         public void run() {
@@ -250,13 +255,13 @@ public class MainActivity extends AppCompatActivity {
                                         game.getAwayPPNode().setParent(arFragment.getArSceneView().getScene());
 
                                         game.setAwayPP(new TransformableNode(arFragment.getTransformationSystem()));
-                                        game.getAwayPP().setRenderable(scoreBugRenderable);
+                                        game.getAwayPP().setRenderable(ppAwayRenderable);
 
-                                        game.getAwayPP().setLocalPosition(new Vector3(rinkPos.x - 0.05f, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
+                                        game.getAwayPP().setLocalPosition(new Vector3(rinkPos.x + 0.15f, rinkPos.y + 0.23f, rinkPos.z - 0.35f));
 
                                         game.getAwayPP().setParent(game.getAwayPPNode());
 
-                                        ppAwayHandler.postDelayed(this, 1000);
+                                        handler.postDelayed(this, 1000);
                                     } catch (InterruptedException | ExecutionException ex) {
                                     }
 
@@ -472,7 +477,8 @@ public class MainActivity extends AppCompatActivity {
                     // arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
                     arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
                     modelCount += 1;
-                    handlerScoreBug.postDelayed(runScoreBug, 0); // Start runnable
+                    handler.postDelayed(eventRunner, 10000);
+                    handler.postDelayed(runScoreBug, 0); // Start runnable
                 });
     }
 
@@ -520,25 +526,20 @@ public class MainActivity extends AppCompatActivity {
 
         int minEvent = 0;
         int maxEvent = 20;
-        //int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
-        int randEvent = 19;
+        int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
+        //int randEvent = (int) System.nanoTime() % 10;
 
         // Random event should be generated here
-        // Push to Firebase here instead of calling functions
-        if (randEvent <= 15) {
+        if (randEvent <= 5) {
             Shot currShot = new Shot(System.nanoTime(), player, team, pos.x, pos.y, pos.z);
             dbShotsRef.push().setValue(currShot);
-        } else if (randEvent < 18) {
+        } else if (randEvent < 7) {
             Goal currGoal = new Goal(System.nanoTime(), player, team);
             dbGoalsRef.push().setValue(currGoal);
-        } else {
+        } else if (randEvent < 8){
             Ejection currEjection = new Ejection(System.nanoTime(), player, team, pos.x, pos.y, pos.z);
             dbEjectionsRef.push().setValue(currEjection);
         }
-
-        //newShot(player, team , position);
-        //goal(player, team);
-        //newEjection(player, team, position);
     }
 
     /** Called when a shot event occurs */
@@ -788,16 +789,16 @@ public class MainActivity extends AppCompatActivity {
 
                                 // Check if there are any current PPs. If not, create PP
                                 if (currEjection.team == game.getHomeTeam()) {
-                                    if (!game.isHomePPBool()) {
-                                        game.setHomePPStart(currEjection.getTime());
-                                        ppHomeHandler.postDelayed(ppHomeRun, 0);
-                                        game.setHomePPBool(true);
-                                    }
-                                } else if (currEjection.team == game.getAwayTeam()) {
                                     if (!game.isAwayPPBool()) {
                                         game.setAwayPPStart(currEjection.getTime());
-                                        ppAwayHandler.postDelayed(ppAwayRun, 0);
+                                        handler.postDelayed(ppAwayRun, 0);
                                         game.setAwayPPBool(true);
+                                    }
+                                } else if (currEjection.team == game.getAwayTeam()) {
+                                    if (!game.isHomePPBool()) {
+                                        game.setHomePPStart(currEjection.getTime());
+                                        handler.postDelayed(ppHomeRun, 0);
+                                        game.setHomePPBool(true);
                                     }
                                 }
                             } catch (InterruptedException | ExecutionException ex) {

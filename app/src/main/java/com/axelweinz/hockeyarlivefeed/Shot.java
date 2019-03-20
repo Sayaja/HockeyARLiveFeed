@@ -84,7 +84,7 @@ public class Shot { // Class to store information about a rendered shot
     }
 
     public boolean checkTime() { // Removes the rendered shot if it has been displayed for a certain time
-        if ((System.nanoTime() - this.time) / 1_000_000_000.0 > 5) {
+        if ((System.nanoTime() - this.time) / 1_000_000_000.0 > 10) {
             try {
                 this.info.getScene().onRemoveChild(this.info.getParent());
                 this.model.getScene().onRemoveChild(this.model.getParent());
