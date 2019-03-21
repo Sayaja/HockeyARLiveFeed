@@ -62,12 +62,14 @@ public class MainActivity extends AppCompatActivity {
     private ViewRenderable ppHomeRenderable;
     private ViewRenderable ppAwayRenderable;
     private ViewRenderable goalInfoRenderable;
+    private ViewRenderable faceOffRenderable;
     private ViewRenderable scoreBugRenderable;
 
     private FirebaseDatabase db = FirebaseDatabase.getInstance();
     private DatabaseReference dbShotsRef = db.getReference("shots");
     private DatabaseReference dbEjectionsRef = db.getReference("ejections");
     private DatabaseReference dbGoalsRef = db.getReference("goals");
+    private DatabaseReference dbFaceOffsRef = db.getReference("faceoffs");
 
     private Game game = new Game(); // Game class that contains all general nodes etc
 
@@ -336,6 +338,16 @@ public class MainActivity extends AppCompatActivity {
                             return null;
                         });
 
+        ModelRenderable.builder()
+                .setSource(this, R.raw.puck)
+                .build()
+                .thenAccept(renderable -> puckRenderable = renderable)
+                .exceptionally(
+                        throwable -> {
+                            Log.e(TAG, "Unable to load Renderable.", throwable);
+                            return null;
+                        });
+
         ViewRenderable.builder()
                 .setView(this, game.getScoreText())
                 .build()
@@ -440,6 +452,27 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
 
+                    dbFaceOffsRef.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            long cCount = dataSnapshot.getChildrenCount();
+                            long lCount = 1;
+                            for (DataSnapshot faceOffSnapshot: dataSnapshot.getChildren()) {
+                                if (lCount >= cCount) {
+                                    game.setFaceOff(faceOffSnapshot.getValue(FaceOff.class));
+                                    newFaceOff();
+                                }
+                                lCount += 1;
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError error) {
+                            // Failed to read value
+                            Log.w(TAG, "Failed to read value.", error.toException());
+                        }
+                    });
+
                     // Create the Anchor.
                     Anchor anchor = hitResult.createAnchor();
                     Anchor anchor1 = hitResult.createAnchor();
@@ -496,18 +529,30 @@ public class MainActivity extends AppCompatActivity {
         float maxZ = 0.13f;
         Random r = new Random();
         float rZ = minZ + r.nextFloat() * (maxZ - minZ);
-        float minX = -0.3f;
-        float maxX = 0.3f;
+        float minX;
+        float maxX;
+        if (team == game.getHomeTeam()) {
+            minX = 0.05f;
+            maxX = 0.3f;
+        } else {
+            minX = -0.3f;
+            maxX = -0.05f;
+        }
         r = new Random();
         float rX = minX + r.nextFloat() * (maxX - minX);
         Vector3 pos = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
-        //Vector3 pos = new Vector3(rinkPos.x + 0.3f, rinkPos.y, rinkPos.z + 0.13f);
 
         // Remove the goal view when next event occurs (the game has resumed)
         try {
             game.getGoal().getInfo().getScene().onRemoveChild(game.getGoal().getInfo().getParent());
             game.getGoal().getInfo().setRenderable(null);
             game.getGoal().getNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+        try { // Remove old face off
+            game.getFaceOff().getInfo().getScene().onRemoveChild(game.getFaceOff().getInfo().getParent());
+            game.getFaceOff().getInfo().setRenderable(null);
+            game.getFaceOff().getNode().getAnchor().detach();
         } catch (NullPointerException e) {
         }
 
@@ -527,7 +572,7 @@ public class MainActivity extends AppCompatActivity {
         int minEvent = 0;
         int maxEvent = 20;
         int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
-        //int randEvent = (int) System.nanoTime() % 10;
+        //int randEvent = 5;
 
         // Random event should be generated here
         if (randEvent <= 5) {
@@ -539,7 +584,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (randEvent < 8){
             Ejection currEjection = new Ejection(System.nanoTime(), player, team, pos.x, pos.y, pos.z);
             dbEjectionsRef.push().setValue(currEjection);
-        }
+        } // Add face off here
     }
 
     /** Called when a shot event occurs */
@@ -557,7 +602,7 @@ public class MainActivity extends AppCompatActivity {
         shotText.setLayoutParams(lp);
 
         // Set text to display in TextView
-        shotText.setText(currShot.player);
+        shotText.setText("Shot" + "\n" + currShot.player);
 
         // Set a text color for TextView text
         if (currShot.team == game.getHomeTeam()) {
@@ -607,7 +652,7 @@ public class MainActivity extends AppCompatActivity {
                                 currShot.getModel().getRotationController().setEnabled(false);
                                 //Vector3 pos = andy.getLocalPosition();
                                 //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
-                                currShot.getModel().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos, currShot.zPos));
+                                currShot.getModel().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos + 0.02f, currShot.zPos));
                                 currShot.getInfo().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos + 0.1f, currShot.zPos));
 
                                 currShot.getModel().setParent(currShot.getNode());
@@ -623,11 +668,6 @@ public class MainActivity extends AppCompatActivity {
 
     // Called when there is a goal
     public void newGoal(Goal currGoal) {
-
-        // Delete old scoreBug
-//        game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
-//        game.getScoreBug().setRenderable(null);
-//        game.getScoreBugNode().getAnchor().detach();
 
         if (currGoal.team == game.getHomeTeam()) {
             game.setHomeScore(game.getHomeScore() + 1);
@@ -649,27 +689,22 @@ public class MainActivity extends AppCompatActivity {
         // Set text to display in TextView
         String temp = "GOAL " + currGoal.team + "\n" + currGoal.player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
         goalText.setText(temp);
-        //String tempScore = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>" + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">" + game.getAwayTeam() + "</font>";
-        //game.getScoreText().setText(Html.fromHtml(tempScore));
 
         // Set a text color for TextView text
-        if (currGoal.team == "Detroit") {
-            goalText.setTextColor(Color.parseColor("#CE1126"));
-        } else if (currGoal.team == "Maple Leafs") {
-            goalText.setTextColor(Color.parseColor("#003E7E"));
-        } else if (currGoal.team == "Sharks") {
-            goalText.setTextColor(Color.parseColor("#006D75"));
-        } else if (currGoal.team == "Boston") {
-            goalText.setTextColor(Color.parseColor("#FFB81C"));
+        Vector3 goalTextPos;
+        if (currGoal.team == game.getHomeTeam()) {
+            goalText.setTextColor(Color.parseColor(game.getHomeColor()));
+            goalTextPos = new Vector3(rinkPos.x + 0.3f, rinkPos.y + 0.1f, rinkPos.z);
+        } else if (currGoal.team == game.getAwayTeam()) {
+            goalText.setTextColor(Color.parseColor(game.getAwayColor()));
+            goalTextPos = new Vector3(rinkPos.x - 0.3f, rinkPos.y + 0.1f, rinkPos.z);
         } else {
             goalText.setTextColor(Color.parseColor("#000000"));
+            goalTextPos = new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z);
         }
 
         CompletableFuture<ViewRenderable> goalStage =
                 ViewRenderable.builder().setView(this, goalText).build();
-
-        //CompletableFuture<ViewRenderable> scoreStage =
-        //        ViewRenderable.builder().setView(this, game.getScoreText()).build();
 
         CompletableFuture.allOf(
                 goalStage)
@@ -685,29 +720,20 @@ public class MainActivity extends AppCompatActivity {
 
                             try {
                                 goalInfoRenderable = goalStage.get();
-                                //scoreBugRenderable = scoreStage.get();
 
                                 goalInfoRenderable.setShadowCaster(false);
-                                //scoreBugRenderable.setShadowCaster(false);
 
                                 // Create the Anchor.
                                 Anchor anchor = firstHit.createAnchor();
-                                //Anchor anchor1 = firstHit.createAnchor();
                                 game.getGoal().setNode(new AnchorNode(anchor));
-                                //game.setScoreBugNode(new AnchorNode(anchor1));
                                 game.getGoal().getNode().setParent(arFragment.getArSceneView().getScene());
-                                //game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
 
                                 game.getGoal().setInfo(new TransformableNode(arFragment.getTransformationSystem()));
-                                //game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
                                 game.getGoal().getInfo().setRenderable(goalInfoRenderable);
-                                //game.getScoreBug().setRenderable(scoreBugRenderable);
 
-                                game.getGoal().getInfo().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.1f, rinkPos.z - 0.35f));
-                                //game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+                                game.getGoal().getInfo().setLocalPosition(goalTextPos);
 
                                 game.getGoal().getInfo().setParent(game.getGoal().getNode());
-                                //game.getScoreBug().setParent(game.getScoreBugNode());
                             } catch (InterruptedException | ExecutionException ex) {
                             }
 
@@ -729,9 +755,9 @@ public class MainActivity extends AppCompatActivity {
         ejectionText.setLayoutParams(lp);
 
         // Set text to display in TextView
-        ejectionText.setText(currEjection.player);
+        ejectionText.setText(currEjection.violation + "\n" + currEjection.player);
 
-        // Set a text color for TextView text & set PP
+        // Set a text color for TextView text
         if (currEjection.team == game.getHomeTeam()) {
             ejectionText.setTextColor(Color.parseColor(game.getHomeColor()));
         } else if (currEjection.team == game.getAwayTeam()) {
@@ -778,8 +804,7 @@ public class MainActivity extends AppCompatActivity {
                                 currEjection.setInfo(new TransformableNode(arFragment.getTransformationSystem()));
                                 currEjection.getInfo().setRenderable(ejectionInfoRenderable);
 
-                                currEjection.getModel().setLocalPosition(new Vector3(currEjection.xPos, currEjection.yPos, currEjection.zPos));
-
+                                currEjection.getModel().setLocalPosition(new Vector3(currEjection.xPos, currEjection.yPos + 0.02f, currEjection.zPos));
                                 currEjection.getInfo().setLocalPosition(new Vector3(currEjection.xPos, currEjection.yPos + 0.1f, currEjection.zPos));
 
                                 currEjection.getModel().setParent(currEjection.getNode());
@@ -801,6 +826,73 @@ public class MainActivity extends AppCompatActivity {
                                         game.setHomePPBool(true);
                                     }
                                 }
+                            } catch (InterruptedException | ExecutionException ex) {
+                            }
+
+                            return null;
+                        });
+    }
+
+    // Called when there is a face off
+    public void newFaceOff() {
+
+        // Create a TextView programmatically.
+        TextView faceOffText = new TextView(getApplicationContext());
+
+        // Create a LayoutParams for TextView
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
+                RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
+
+        // Apply the layout parameters to TextView widget
+        faceOffText.setLayoutParams(lp);
+
+        // Set text to display in TextView
+        String temp = "Face Off";
+        faceOffText.setText(temp);
+
+        // Set a text color for TextView text
+        faceOffText.setTextColor(Color.parseColor("#000000"));
+
+        CompletableFuture<ViewRenderable> faceOffStage =
+                ViewRenderable.builder().setView(this, faceOffText).build();
+
+        CompletableFuture.allOf(
+                faceOffStage)
+                .handle(
+                        (notUsed, throwable) -> {
+                            if (throwable != null) {
+                                return null;
+                            }
+
+                            try {
+                                faceOffRenderable = faceOffStage.get();
+
+                                faceOffRenderable.setShadowCaster(false);
+
+                                // Create the Anchor.
+                                Anchor anchor = firstHit.createAnchor();
+                                game.getFaceOff().setNode(new AnchorNode(anchor));
+                                game.getFaceOff().getNode().setParent(arFragment.getArSceneView().getScene());
+
+                                // Create the transformable and add it to the anchor.
+                                game.getFaceOff().setModel(new TransformableNode(arFragment.getTransformationSystem()));
+                                game.getFaceOff().getModel().setRenderable(puckRenderable);
+                                game.getFaceOff().getModel().getScaleController().setMinScale(0.01f);
+                                game.getFaceOff().getModel().getScaleController().setMaxScale(2.0f);
+                                game.getFaceOff().getModel().setLocalScale(new Vector3(0.03f, 0.03f, 0.03f));
+                                //game.getFaceOff().getModel().setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0), 90));
+                                game.getFaceOff().getModel().getRotationController().setEnabled(false);
+                                game.getFaceOff().getModel().getScaleController().setEnabled(false);
+
+                                game.getFaceOff().setInfo(new TransformableNode(arFragment.getTransformationSystem()));
+                                game.getFaceOff().getInfo().setRenderable(faceOffRenderable);
+
+                                game.getFaceOff().getInfo().setLocalPosition(new Vector3(game.getFaceOff().xPos, game.getFaceOff().yPos + 0.1f, game.getFaceOff().zPos));
+                                game.getFaceOff().getModel().setLocalPosition(new Vector3(game.getFaceOff().xPos, game.getFaceOff().yPos, game.getFaceOff().zPos));
+
+                                game.getFaceOff().getModel().setParent(game.getFaceOff().getNode());
+                                game.getFaceOff().getInfo().setParent(game.getFaceOff().getNode());
                             } catch (InterruptedException | ExecutionException ex) {
                             }
 

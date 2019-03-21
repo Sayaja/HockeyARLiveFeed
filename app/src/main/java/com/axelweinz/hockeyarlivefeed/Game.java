@@ -26,6 +26,7 @@ public class Game { // Class to store general information about the game
     private List shotList = new ArrayList(); // Store all shots that are currently rendered and displayed
     private List ejectionList = new ArrayList(); // Store all ejections that are currently rendered and displayed
     private Goal goal = new Goal();
+    private FaceOff faceOff = new FaceOff();
 
     private long gameTime;
     private String homeTeam;
@@ -64,6 +65,14 @@ public class Game { // Class to store general information about the game
         // Set text to display in TextView
         String text = "<font color="+this.homeColor+">" + this.homeTeam + "</font> <font color=#ffffff>" + this.homeScore + " - " + this.awayScore + "</font> <font color="+this.awayColor+">" + this.awayTeam + "</font>";
         scoreText.setText(Html.fromHtml(text));
+    }
+
+    public FaceOff getFaceOff() {
+        return faceOff;
+    }
+
+    public void setFaceOff(FaceOff faceOff) {
+        this.faceOff = faceOff;
     }
 
     public TransformableNode getHomePP() {

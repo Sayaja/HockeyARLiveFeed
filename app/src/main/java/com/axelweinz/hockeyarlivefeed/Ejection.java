@@ -5,10 +5,13 @@ import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.ux.TransformableNode;
 import com.google.firebase.database.Exclude;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 public class Ejection { // Class to store information about a rendered ejection
     public long time;
     public String player;
     public String team;
+    public String violation;
     public float xPos;
     public float yPos;
     public float zPos;
@@ -31,6 +34,13 @@ public class Ejection { // Class to store information about a rendered ejection
         this.xPos = xPos;
         this.yPos = yPos;
         this.zPos = zPos;
+
+        // Generate random violation
+        String[] violations = {"Charging", "Roughing", "Tripping", "Hooking", "Interference"};
+        int min = 0;
+        int max = violations.length - 1;
+        int rand = ThreadLocalRandom.current().nextInt(min, max + 1);
+        this.violation = violations[rand];
     }
 
     public long getTime() {
