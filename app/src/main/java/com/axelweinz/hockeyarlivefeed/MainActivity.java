@@ -29,6 +29,7 @@ import com.google.ar.sceneform.rendering.ShapeFactory;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
+import com.google.ar.schemas.lull.Vec2;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -45,6 +46,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -276,6 +278,8 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private Vector3 rinkPos; // The position of the rink
+    private Vector3[] faceOffSpots = {new Vector3(0,0,0), new Vector3(0.25f, 0, 0.09f), new Vector3(0.25f, 0, -0.09f),
+        new Vector3(-0.25f, 0, 0.09f), new Vector3(-0.25f, 0, -0.09f)};
     private Integer modelCount = 0; // Only 1 rink to be displayed
 
     private String[] teams = {"DRW", "TML"}; //, "Sharks", "Boston"}; // Placeholder teams
@@ -294,6 +298,7 @@ public class MainActivity extends AppCompatActivity {
         dbShotsRef.removeValue();
         dbEjectionsRef.removeValue();
         dbGoalsRef.removeValue();
+        dbFaceOffsRef.removeValue();
 
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
 
@@ -541,6 +546,7 @@ public class MainActivity extends AppCompatActivity {
         r = new Random();
         float rX = minX + r.nextFloat() * (maxX - minX);
         Vector3 pos = new Vector3(rinkPos.x + rX, rinkPos.y + 0, rinkPos.z + rZ);
+        //Vector3 pos = new Vector3(rinkPos.x + 0.25f, rinkPos.y + 0, rinkPos.z + 0.10f);
 
         // Remove the goal view when next event occurs (the game has resumed)
         try {
@@ -572,7 +578,7 @@ public class MainActivity extends AppCompatActivity {
         int minEvent = 0;
         int maxEvent = 20;
         int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
-        //int randEvent = 5;
+        //int randEvent = 8;
 
         // Random event should be generated here
         if (randEvent <= 5) {
@@ -584,7 +590,19 @@ public class MainActivity extends AppCompatActivity {
         } else if (randEvent < 8){
             Ejection currEjection = new Ejection(System.nanoTime(), player, team, pos.x, pos.y, pos.z);
             dbEjectionsRef.push().setValue(currEjection);
-        } // Add face off here
+        } else if (randEvent < 9) {
+            float shortestDistance = 10;
+            Vector3 spot = new Vector3();
+            for (int k=0;k<faceOffSpots.length;k++) { // Calculate face off spot
+                float distance = Math.abs((pos.x - faceOffSpots[k].x) + (pos.z - faceOffSpots[k].z));
+                if (distance < shortestDistance) {
+                    shortestDistance = distance;
+                    spot = faceOffSpots[k];
+                }
+            }
+            FaceOff currFaceOff = new FaceOff(System.nanoTime(), spot.x, spot.y, spot.z);
+            dbFaceOffsRef.push().setValue(currFaceOff);
+        }
     }
 
     /** Called when a shot event occurs */
@@ -880,7 +898,7 @@ public class MainActivity extends AppCompatActivity {
                                 game.getFaceOff().getModel().setRenderable(puckRenderable);
                                 game.getFaceOff().getModel().getScaleController().setMinScale(0.01f);
                                 game.getFaceOff().getModel().getScaleController().setMaxScale(2.0f);
-                                game.getFaceOff().getModel().setLocalScale(new Vector3(0.03f, 0.03f, 0.03f));
+                                game.getFaceOff().getModel().setLocalScale(new Vector3(0.018f, 0.018f, 0.018f));
                                 //game.getFaceOff().getModel().setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0), 90));
                                 game.getFaceOff().getModel().getRotationController().setEnabled(false);
                                 game.getFaceOff().getModel().getScaleController().setEnabled(false);
