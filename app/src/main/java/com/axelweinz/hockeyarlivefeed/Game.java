@@ -22,6 +22,10 @@ public class Game { // Class to store general information about the game
     private AnchorNode homePPNode;
     private TransformableNode awayPP;
     private AnchorNode awayPPNode;
+    private TransformableNode stats;
+    private AnchorNode statsNode;
+    private TransformableNode statsL;
+    private TransformableNode statsR;
 
     private List shotList = new ArrayList(); // Store all shots that are currently rendered and displayed
     private List ejectionList = new ArrayList(); // Store all ejections that are currently rendered and displayed
@@ -38,6 +42,8 @@ public class Game { // Class to store general information about the game
     private TextView scoreText;
     private boolean homePPBool = false;
     private boolean awayPPBool = false;
+    private int homePPMin = 0;
+    private int awayPPMin = 0;
     private TextView homePPText;
     private TextView awayPPText;
     private long homePPStart;
@@ -65,6 +71,54 @@ public class Game { // Class to store general information about the game
         // Set text to display in TextView
         String text = "<font color="+this.homeColor+">" + this.homeTeam + "</font> <font color=#ffffff>" + this.homeScore + " - " + this.awayScore + "</font> <font color="+this.awayColor+">" + this.awayTeam + "</font>";
         scoreText.setText(Html.fromHtml(text));
+    }
+
+    public int getHomePPMin() {
+        return homePPMin;
+    }
+
+    public void setHomePPMin(int homePPMin) {
+        this.homePPMin = homePPMin;
+    }
+
+    public int getAwayPPMin() {
+        return awayPPMin;
+    }
+
+    public void setAwayPPMin(int awayPPMin) {
+        this.awayPPMin = awayPPMin;
+    }
+
+    public TransformableNode getStatsR() {
+        return statsR;
+    }
+
+    public void setStatsR(TransformableNode statsR) {
+        this.statsR = statsR;
+    }
+
+    public TransformableNode getStatsL() {
+        return statsL;
+    }
+
+    public void setStatsL(TransformableNode statsL) {
+        this.statsL = statsL;
+    }
+
+    public TransformableNode getStats() {
+        return stats;
+    }
+
+    public void setStats(TransformableNode stats) {
+        this.stats = stats;
+    }
+
+    public AnchorNode getStatsNode() {
+        return statsNode;
+    }
+
+    public void setStatsNode(AnchorNode statsNode) {
+        this.statsNode = statsNode;
     }
 
     public FaceOff getFaceOff() {

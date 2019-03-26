@@ -100,4 +100,16 @@ public class Shot { // Class to store information about a rendered shot
             return false;
         }
     }
+
+    public void deleteRender() {
+        try {
+            this.info.getScene().onRemoveChild(this.info.getParent());
+            this.model.getScene().onRemoveChild(this.model.getParent());
+        } catch (NullPointerException e) {
+        } finally {
+            this.info.setRenderable(null);
+            this.model.setRenderable(null);
+            this.node.getAnchor().detach();
+        }
+    }
 }

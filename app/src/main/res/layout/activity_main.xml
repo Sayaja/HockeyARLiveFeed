@@ -6,37 +6,23 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <fragment android:name="com.google.ar.sceneform.ux.ArFragment"
+    <fragment
         android:id="@+id/ux_fragment"
+        android:name="com.google.ar.sceneform.ux.ArFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!--<TextView xmlns:android="http://schemas.android.com/apk/res/android"-->
-        <!--android:id="@+id/shotInfo"-->
-        <!--android:layout_width="wrap_content"-->
-        <!--android:layout_height="wrap_content"-->
-        <!--android:layout_marginStart="8dp"-->
-        <!--android:layout_marginTop="8dp"-->
-        <!--android:layout_weight="1"-->
-        <!--android:background="@drawable/rounded_bg"-->
-        <!--android:gravity="center"-->
-        <!--android:orientation="vertical"-->
-        <!--android:padding="6dp"-->
-        <!--android:text="Test"-->
-        <!--android:textAlignment="center"-->
-        <!--app:layout_constraintStart_toStartOf="parent"-->
-        <!--app:layout_constraintTop_toTopOf="parent" />-->
-
-    <!--<RelativeLayout-->
-        <!--xmlns:android="http://schemas.android.com/apk/res/android"-->
-        <!--xmlns:tools="http://schemas.android.com/tools"-->
-        <!--android:id="@+id/rl"-->
-        <!--android:layout_width="match_parent"-->
-        <!--android:layout_height="match_parent"-->
-        <!--android:padding="16dp"-->
-        <!--tools:context=".MainActivity"-->
-        <!--android:background="@android:color/white"-->
-        <!--&gt;-->
-    <!--</RelativeLayout>-->
+    <ToggleButton
+        android:id="@+id/statsToggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:onClick="statistics"
+        android:text="ToggleButton"
+        android:textOff="@string/toggle_stats"
+        android:textOn="@string/toggle_live"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </android.support.constraint.ConstraintLayout>
