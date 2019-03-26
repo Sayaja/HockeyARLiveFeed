@@ -82,7 +82,9 @@ public class MainActivity extends AppCompatActivity {
     private Runnable eventRunner = new Runnable() { // Generates event
         @Override
         public void run() {
-            event();
+            //event();
+            //Log.d(TAG, "AZZ: " + Float.toString(hockeyRink.getLocalPosition().x) + "," + Float.toString(hockeyRink.getLocalPosition().y)
+            //    + "," + Float.toString(hockeyRink.getLocalPosition().z));
             handler.postDelayed(eventRunner, 4000);
         }
     };
@@ -278,6 +280,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private Vector3 rinkPos; // The position of the rink
+    //private TransformableNode hockeyRink;
     private Vector3[] faceOffSpots = {new Vector3(0,0,0), new Vector3(0.25f, 0, 0.09f), new Vector3(0.25f, 0, -0.09f),
         new Vector3(-0.25f, 0, 0.09f), new Vector3(-0.25f, 0, -0.09f)};
     private Integer modelCount = 0; // Only 1 rink to be displayed
@@ -488,6 +491,7 @@ public class MainActivity extends AppCompatActivity {
                     game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
 
                     // Create the transformable andy and add it to the anchor.
+                    //hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
                     TransformableNode hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
                     game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
                     hockeyRink.setRenderable(hockeyRinkRenderable);
@@ -512,8 +516,8 @@ public class MainActivity extends AppCompatActivity {
 
                     hockeyRink.select();
 
-                    // arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
-                    arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
+                    arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
+                    //arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
                     modelCount += 1;
                     handler.postDelayed(eventRunner, 10000);
                     handler.postDelayed(runScoreBug, 0); // Start runnable
@@ -577,8 +581,8 @@ public class MainActivity extends AppCompatActivity {
 
         int minEvent = 0;
         int maxEvent = 20;
-        int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
-        //int randEvent = 8;
+        //int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
+        int randEvent = 8;
 
         // Random event should be generated here
         if (randEvent <= 5) {
