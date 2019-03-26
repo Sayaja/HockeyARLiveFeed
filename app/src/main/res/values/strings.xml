@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Hockey AR Live Feed</string>
+    <string name="toggle_live">Live</string>
+    <string name="toggle_stats">Stats</string>
 </resources>
