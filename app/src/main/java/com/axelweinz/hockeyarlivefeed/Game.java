@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Game { // Class to store general information about the game
+    private TransformableNode rink;
+    private AnchorNode rinkNode;
     private TransformableNode scoreBug;
     private AnchorNode scoreBugNode;
     private TransformableNode homePP;
@@ -71,6 +73,22 @@ public class Game { // Class to store general information about the game
         // Set text to display in TextView
         String text = "<font color="+this.homeColor+">" + this.homeTeam + "</font> <font color=#ffffff>" + this.homeScore + " - " + this.awayScore + "</font> <font color="+this.awayColor+">" + this.awayTeam + "</font>";
         scoreText.setText(Html.fromHtml(text));
+    }
+
+    public TransformableNode getRink() {
+        return rink;
+    }
+
+    public void setRink(TransformableNode rink) {
+        this.rink = rink;
+    }
+
+    public AnchorNode getRinkNode() {
+        return rinkNode;
+    }
+
+    public void setRinkNode(AnchorNode rinkNode) {
+        this.rinkNode = rinkNode;
     }
 
     public int getHomePPMin() {

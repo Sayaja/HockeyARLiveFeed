@@ -12,6 +12,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -81,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
 
     private Game game = new Game(); // Game class that contains all general nodes etc
 
+    private Button statsToggle;
+    private ImageButton refreshButton;
+
     private ArFragment arFragment;
     private HitResult firstHit;
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -108,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
                 clock = Integer.toString(min) + ":" + Integer.toString(sec);
             }
 
-            if (!stats) {
+            if (!stats && rinkPlaced) {
                 String text = "<font color="+game.getHomeColor()+">" + game.getHomeTeam() + "</font> <font color=#ffffff>"
                         + game.getHomeScore() + " - " + game.getAwayScore() + "</font> <font color="+game.getAwayColor()+">"
                         + game.getAwayTeam() + "</font> <font color=#ffffff>" + clock + "</font>";
@@ -182,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (secPassed < 120) {
-                if (!stats) {
+                if (!stats && rinkPlaced) {
                     String text = "<font color="+game.getHomeColor()+">" + "PP</font> <font color=#ffffff>"+clock+"</font>";
                     game.getHomePPText().setText(Html.fromHtml(text));
                 } else {
@@ -250,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (secPassed < 120) {
-                if (!stats) {
+                if (!stats && rinkPlaced) {
                     String text = "<font color="+game.getAwayColor()+">" + "PP</font> <font color=#ffffff>"+clock+"</font>";
                     game.getAwayPPText().setText(Html.fromHtml(text));
                 } else {
@@ -301,7 +305,7 @@ public class MainActivity extends AppCompatActivity {
     //private TransformableNode hockeyRink;
     private Vector3[] faceOffSpots = {new Vector3(0,0,0), new Vector3(0.25f, 0, 0.09f), new Vector3(0.25f, 0, -0.09f),
         new Vector3(-0.25f, 0, 0.09f), new Vector3(-0.25f, 0, -0.09f)};
-    private Integer modelCount = 0; // Only 1 rink to be displayed
+    private boolean rinkPlaced = false;
     private boolean stats = false;
 
     private String[] teams = {"DRW", "TML"}; //, "Sharks", "Boston"}; // Placeholder teams
@@ -316,8 +320,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button statsToggle = (Button) findViewById(R.id.statsToggle);
+        statsToggle = (Button) findViewById(R.id.statsToggle);
+        refreshButton = (ImageButton) findViewById(R.id.refresh);
         statsToggle.setVisibility(View.GONE); // Hide until rink is placed
+        refreshButton.setVisibility(View.GONE);
 
         // Clear Firebase when new game starts
         dbShotsRef.removeValue();
@@ -399,156 +405,169 @@ public class MainActivity extends AppCompatActivity {
         // arFragment.getArSceneView(). <-- To get access to the ARCore session and more
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-                    if (firstHit == null) { // The anchor for the rink. Use this for reference when placing other anchors
-                        firstHit = hitResult;
-                        game.setGameTime(System.nanoTime());
-                    }
 
                     if (hockeyRinkRenderable == null) {
                         return;
                     }
-                    if (modelCount == 1) { // Limit to 1 model
+                    if (rinkPlaced) { // Limit to 1 model
                         event(); // Generate an event when detected plane is touched
                         return;
+                    } else {
+
+                        // Create the Anchor.
+                        Anchor anchor = hitResult.createAnchor();
+                        //Anchor anchor1 = hitResult.createAnchor();
+                        game.setRinkNode(new AnchorNode(anchor));
+                        //game.setScoreBugNode(new AnchorNode(anchor1));
+
+                        game.getRinkNode().setParent(arFragment.getArSceneView().getScene());
+                        //game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
+
+                        // Create the transformable andy and add it to the anchor.
+                        //hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
+                        game.setRink(new TransformableNode(arFragment.getTransformationSystem()));
+                        //game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
+                        game.getRink().setRenderable(hockeyRinkRenderable);
+                        //game.getScoreBug().setRenderable(scoreBugRenderable);
+
+                        // Set correct rotation of model, then disable rotation with twist
+                        //hockeyRink.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), -90f));
+                        game.getRink().getRotationController().setEnabled(false);
+                        game.getRink().getTranslationController().setEnabled(false);
+                        game.getRink().getScaleController().setMinScale(0.01f);
+                        game.getRink().getScaleController().setMaxScale(2.0f);
+                        game.getRink().setLocalScale(new Vector3(0.015f, 0.015f, 0.015f));
+                        game.getRink().getScaleController().setEnabled(false);
+                        rinkPos = game.getRink().getLocalPosition();
+                        //Vector3 temp = new Vector3(rinkPos.x + 0, rinkPos.y + (rinkPos.y+0)/10f, rinkPos.z + 0);
+                        //hockeyRink.setLocalPosition(temp);
+
+                        //game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+
+                        game.getRink().setParent(game.getRinkNode());
+                        //game.getScoreBug().setParent(game.getScoreBugNode());
+
+                        //hockeyRink.select();
+
+                        arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
+                        //arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
+
+                        if (firstHit == null) {
+                            game.setGameTime(System.nanoTime());
+
+                            // Set up listeners here and have them call the corresponding methods
+                            dbShotsRef.addValueEventListener(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    // This method is called once with the initial value and again
+                                    // whenever data at this location is updated.
+                                    if (!stats && rinkPlaced) { // If live feed is toggled
+                                        long cCount = dataSnapshot.getChildrenCount();
+                                        long lCount = 1;
+                                        for (DataSnapshot shotSnapshot: dataSnapshot.getChildren()) {
+                                            if (lCount >= cCount) {
+                                                Shot currShot = shotSnapshot.getValue(Shot.class);
+                                                newShot(currShot);
+                                            }
+                                            lCount += 1;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError error) {
+                                    // Failed to read value
+                                    Log.w(TAG, "Failed to read value.", error.toException());
+                                }
+                            });
+
+                            dbEjectionsRef.addValueEventListener(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    if (!stats && rinkPlaced) {
+                                        long cCount = dataSnapshot.getChildrenCount();
+                                        long lCount = 1;
+                                        for (DataSnapshot ejectionSnapshot: dataSnapshot.getChildren()) {
+                                            if (lCount >= cCount) {
+                                                Ejection currEjection = ejectionSnapshot.getValue(Ejection.class);
+                                                newEjection(currEjection);
+                                            }
+                                            lCount += 1;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError error) {
+                                    // Failed to read value
+                                    Log.w(TAG, "Failed to read value.", error.toException());
+                                }
+                            });
+
+                            dbGoalsRef.addValueEventListener(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    if (!stats && rinkPlaced) {
+                                        long cCount = dataSnapshot.getChildrenCount();
+                                        long lCount = 1;
+                                        for (DataSnapshot goalSnapshot: dataSnapshot.getChildren()) {
+                                            if (lCount >= cCount) {
+                                                game.setGoal(goalSnapshot.getValue(Goal.class));
+                                                newGoal(game.getGoal());
+                                            }
+                                            lCount += 1;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError error) {
+                                    // Failed to read value
+                                    Log.w(TAG, "Failed to read value.", error.toException());
+                                }
+                            });
+
+                            dbFaceOffsRef.addValueEventListener(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    if (!stats && rinkPlaced) {
+                                        long cCount = dataSnapshot.getChildrenCount();
+                                        long lCount = 1;
+                                        for (DataSnapshot faceOffSnapshot: dataSnapshot.getChildren()) {
+                                            if (lCount >= cCount) {
+                                                game.setFaceOff(faceOffSnapshot.getValue(FaceOff.class));
+                                                newFaceOff();
+                                            }
+                                            lCount += 1;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError error) {
+                                    // Failed to read value
+                                    Log.w(TAG, "Failed to read value.", error.toException());
+                                }
+                            });
+
+                            Anchor anchor1 = hitResult.createAnchor();
+                            game.setScoreBugNode(new AnchorNode(anchor1));
+                            game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
+                            game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
+                            game.getScoreBug().setRenderable(scoreBugRenderable);
+                            game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
+                            game.getScoreBug().setParent(game.getScoreBugNode());
+
+                            handler.postDelayed(eventRunner, 10000);
+                            handler.postDelayed(runScoreBug, 0); // Start runnable
+                        }
+
+                        rinkPlaced = true;
+                        firstHit = hitResult;
+
+                        statsToggle.setVisibility(View.VISIBLE);
+                        refreshButton.setVisibility(View.VISIBLE);
                     }
-
-                    // Set up listeners here and have them call the corresponding methods
-                    dbShotsRef.addValueEventListener(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            // This method is called once with the initial value and again
-                            // whenever data at this location is updated.
-                            if (!stats) { // If live feed is toggled
-                                long cCount = dataSnapshot.getChildrenCount();
-                                long lCount = 1;
-                                for (DataSnapshot shotSnapshot: dataSnapshot.getChildren()) {
-                                    if (lCount >= cCount) {
-                                        Shot currShot = shotSnapshot.getValue(Shot.class);
-                                        newShot(currShot);
-                                    }
-                                    lCount += 1;
-                                }
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError error) {
-                            // Failed to read value
-                            Log.w(TAG, "Failed to read value.", error.toException());
-                        }
-                    });
-
-                    dbEjectionsRef.addValueEventListener(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            if (!stats) {
-                                long cCount = dataSnapshot.getChildrenCount();
-                                long lCount = 1;
-                                for (DataSnapshot ejectionSnapshot: dataSnapshot.getChildren()) {
-                                    if (lCount >= cCount) {
-                                        Ejection currEjection = ejectionSnapshot.getValue(Ejection.class);
-                                        newEjection(currEjection);
-                                    }
-                                    lCount += 1;
-                                }
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError error) {
-                            // Failed to read value
-                            Log.w(TAG, "Failed to read value.", error.toException());
-                        }
-                    });
-
-                    dbGoalsRef.addValueEventListener(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            if (!stats) {
-                                long cCount = dataSnapshot.getChildrenCount();
-                                long lCount = 1;
-                                for (DataSnapshot goalSnapshot: dataSnapshot.getChildren()) {
-                                    if (lCount >= cCount) {
-                                        game.setGoal(goalSnapshot.getValue(Goal.class));
-                                        newGoal(game.getGoal());
-                                    }
-                                    lCount += 1;
-                                }
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError error) {
-                            // Failed to read value
-                            Log.w(TAG, "Failed to read value.", error.toException());
-                        }
-                    });
-
-                    dbFaceOffsRef.addValueEventListener(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            if (!stats) {
-                                long cCount = dataSnapshot.getChildrenCount();
-                                long lCount = 1;
-                                for (DataSnapshot faceOffSnapshot: dataSnapshot.getChildren()) {
-                                    if (lCount >= cCount) {
-                                        game.setFaceOff(faceOffSnapshot.getValue(FaceOff.class));
-                                        newFaceOff();
-                                    }
-                                    lCount += 1;
-                                }
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError error) {
-                            // Failed to read value
-                            Log.w(TAG, "Failed to read value.", error.toException());
-                        }
-                    });
-
-                    // Create the Anchor.
-                    Anchor anchor = hitResult.createAnchor();
-                    Anchor anchor1 = hitResult.createAnchor();
-                    AnchorNode anchorNode = new AnchorNode(anchor);
-                    game.setScoreBugNode(new AnchorNode(anchor1));
-
-                    anchorNode.setParent(arFragment.getArSceneView().getScene());
-                    game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
-
-                    // Create the transformable andy and add it to the anchor.
-                    //hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
-                    TransformableNode hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
-                    game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
-                    hockeyRink.setRenderable(hockeyRinkRenderable);
-                    game.getScoreBug().setRenderable(scoreBugRenderable);
-
-                    // Set correct rotation of model, then disable rotation with twist
-                    //hockeyRink.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), -90f));
-                    hockeyRink.getRotationController().setEnabled(false);
-                    hockeyRink.getTranslationController().setEnabled(false);
-                    hockeyRink.getScaleController().setMinScale(0.01f);
-                    hockeyRink.getScaleController().setMaxScale(2.0f);
-                    hockeyRink.setLocalScale(new Vector3(0.015f, 0.015f, 0.015f));
-                    hockeyRink.getScaleController().setEnabled(false);
-                    rinkPos = hockeyRink.getLocalPosition();
-                    Vector3 temp = new Vector3(rinkPos.x + 0, rinkPos.y + (rinkPos.y+0)/10f, rinkPos.z + 0);
-                    //hockeyRink.setLocalPosition(temp);
-
-                    game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
-
-                    hockeyRink.setParent(anchorNode);
-                    game.getScoreBug().setParent(game.getScoreBugNode());
-
-                    hockeyRink.select();
-
-                    arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
-                    //arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
-                    modelCount += 1;
-                    handler.postDelayed(eventRunner, 10000);
-                    handler.postDelayed(runScoreBug, 0); // Start runnable
-
-                    statsToggle.setVisibility(View.VISIBLE);
                 });
     }
 
@@ -611,8 +630,8 @@ public class MainActivity extends AppCompatActivity {
 
         int minEvent = 0;
         int maxEvent = 20;
-        //int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
-        int randEvent = 6;
+        int randEvent = ThreadLocalRandom.current().nextInt(minEvent,maxEvent + 1);
+        //int randEvent = 7;
 
         // Random event should be generated here
         if (randEvent <= 5) {
@@ -1143,5 +1162,75 @@ public class MainActivity extends AppCompatActivity {
                 game.getStatsNode().getAnchor().detach();
             }
         }
+    }
+
+    // Removes the rink and lets the user place it again in a new location
+    public void refresh(View view) {
+        rinkPlaced = false;
+
+        // Remove all elements on screen and all renders
+        statsToggle.setVisibility(View.GONE);
+        refreshButton.setVisibility(View.GONE);
+
+        try {
+            game.getGoal().getInfo().getScene().onRemoveChild(game.getGoal().getInfo().getParent());
+            game.getGoal().getInfo().setRenderable(null);
+            game.getGoal().getNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+        try {
+            game.getFaceOff().getInfo().getScene().onRemoveChild(game.getFaceOff().getInfo().getParent());
+            game.getFaceOff().getInfo().setRenderable(null);
+            game.getFaceOff().getNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+        try {
+            game.getScoreBug().getScene().onRemoveChild(game.getScoreBug().getParent());
+            game.getScoreBug().setRenderable(null);
+            game.getScoreBugNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+        try {
+            game.getHomePP().getScene().onRemoveChild(game.getHomePP().getParent());
+            game.getHomePP().setRenderable(null);
+            game.getHomePPNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+        try { // Clear PP anchors
+            game.getAwayPP().getScene().onRemoveChild(game.getAwayPP().getParent());
+            game.getAwayPP().setRenderable(null);
+            game.getAwayPPNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+        Iterator<Shot> i = game.getShotList().iterator();
+        while (i.hasNext()) {
+            i.next().deleteRender();
+            i.remove();
+        }
+        Iterator<Ejection> j = game.getEjectionList().iterator();
+        while (j.hasNext()) {
+            j.next().deleteRender();
+            j.remove();
+        }
+        if (stats) {
+            try { // Remove stats
+                game.getStats().getScene().onRemoveChild(game.getStats().getParent());
+                game.getStatsL().getScene().onRemoveChild(game.getStatsL().getParent());
+                game.getStatsR().getScene().onRemoveChild(game.getStatsR().getParent());
+            } catch (NullPointerException e) {
+            } finally {
+                game.getStats().setRenderable(null);
+                game.getStatsL().setRenderable(null);
+                game.getStatsNode().getAnchor().detach();
+            }
+        }
+        try {
+            game.getRink().getScene().onRemoveChild(game.getRink().getParent());
+            game.getRink().setRenderable(null);
+            game.getRinkNode().getAnchor().detach();
+        } catch (NullPointerException e) {
+        }
+
+        arFragment.getArSceneView().getPlaneRenderer().setVisible(true);
     }
 }
