@@ -93,8 +93,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             event();
-            //Log.d(TAG, "AZZ: " + Float.toString(hockeyRink.getLocalPosition().x) + "," + Float.toString(hockeyRink.getLocalPosition().y)
-            //    + "," + Float.toString(hockeyRink.getLocalPosition().z));
             handler.postDelayed(eventRunner, 4000);
         }
     };
@@ -301,8 +299,7 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private Vector3 rinkPos = new Vector3(); // The position of the rink
-    //private TransformableNode hockeyRink;
+    private Vector3 rinkPos = new Vector3(); // The position of the rink. Use this to place other TransformableNodes
     private Vector3[] faceOffSpots = {new Vector3(0,0,0), new Vector3(0.25f, 0, 0.09f), new Vector3(0.25f, 0, -0.09f),
         new Vector3(-0.25f, 0, 0.09f), new Vector3(-0.25f, 0, -0.09f)};
     private boolean rinkPlaced = false;
@@ -409,28 +406,22 @@ public class MainActivity extends AppCompatActivity {
                     if (hockeyRinkRenderable == null) {
                         return;
                     }
-                    if (rinkPlaced) { // Limit to 1 model
+                    if (rinkPlaced) { // Limit to 1 rink placed at a time
                         event(); // Generate an event when detected plane is touched
                         return;
                     } else {
 
                         // Create the Anchor.
                         Anchor anchor = hitResult.createAnchor();
-                        //Anchor anchor1 = hitResult.createAnchor();
                         game.setRinkNode(new AnchorNode(anchor));
-                        //game.setScoreBugNode(new AnchorNode(anchor1));
 
                         game.getRinkNode().setParent(arFragment.getArSceneView().getScene());
-                        //game.getScoreBugNode().setParent(arFragment.getArSceneView().getScene());
 
-                        // Create the transformable andy and add it to the anchor.
-                        //hockeyRink = new TransformableNode(arFragment.getTransformationSystem());
+                        // Create the transformable and add it to the anchor.
                         game.setRink(new TransformableNode(arFragment.getTransformationSystem()));
-                        //game.setScoreBug(new TransformableNode(arFragment.getTransformationSystem()));
                         game.getRink().setRenderable(hockeyRinkRenderable);
-                        //game.getScoreBug().setRenderable(scoreBugRenderable);
 
-                        // Set correct rotation of model, then disable rotation with twist
+                        // Set correct scale and rotation of rink
                         //hockeyRink.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), -90f));
                         game.getRink().getRotationController().setEnabled(false);
                         game.getRink().getTranslationController().setEnabled(false);
@@ -442,17 +433,13 @@ public class MainActivity extends AppCompatActivity {
                         //Vector3 temp = new Vector3(rinkPos.x + 0, rinkPos.y + (rinkPos.y+0)/10f, rinkPos.z + 0);
                         //hockeyRink.setLocalPosition(temp);
 
-                        //game.getScoreBug().setLocalPosition(new Vector3(rinkPos.x, rinkPos.y + 0.3f, rinkPos.z - 0.35f));
-
                         game.getRink().setParent(game.getRinkNode());
-                        //game.getScoreBug().setParent(game.getScoreBugNode());
-
                         //hockeyRink.select();
 
                         arFragment.getArSceneView().getPlaneRenderer().setVisible(false); // Disable plane visualization
-                        //arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes to fix rink in position
+                        //arFragment.getArSceneView().getPlaneRenderer().setEnabled(false); // Stop updating planes
 
-                        if (firstHit == null) {
+                        if (firstHit == null) { // If it's the first time the rink is placed
                             game.setGameTime(System.nanoTime());
 
                             // Set up listeners here and have them call the corresponding methods
@@ -613,7 +600,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (NullPointerException e) {
         }
 
-        if (!stats) { // Remove old shots IF life feed is toggled
+        if (!stats) { // Remove old shots IF live feed is toggled
             Iterator<Shot> i = game.getShotList().iterator();
             while (i.hasNext()) {
                 if (i.next().checkTime()) { // Returns true and is deleted IF enough time has passed. Otherwise, returns false and doesn't delete
@@ -666,25 +653,19 @@ public class MainActivity extends AppCompatActivity {
     /** Called when a shot event occurs */
     public void newShot(Shot currShot) {
 
-        // Create a TextView programmatically.
         TextView shotText = new TextView(getApplicationContext());
 
-        // Create a LayoutParams for TextView
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
                 RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
-
-        // Apply the layout parameters to TextView widget
         shotText.setLayoutParams(lp);
 
-        // Set text to display in TextView
         if (stats) { // Stats is toggled, display no text
             shotText.setText("");
         } else {
             shotText.setText("Shot" + "\n" + currShot.player);
         }
 
-        // Set a text color for TextView text
         if (currShot.team == game.getHomeTeam()) {
             shotText.setTextColor(Color.parseColor(game.getHomeColor()));
         } else if (currShot.team == game.getAwayTeam()) {
@@ -730,8 +711,6 @@ public class MainActivity extends AppCompatActivity {
                                 currShot.getModel().setLocalScale(new Vector3(0.06f, 0.06f, 0.06f));
                                 currShot.getModel().getScaleController().setEnabled(false);
                                 currShot.getModel().getRotationController().setEnabled(false);
-                                //Vector3 pos = andy.getLocalPosition();
-                                //Vector3 temp = new Vector3(pos.x + 0, pos.y + (pos.y+0)/10f, pos.z + 0);
                                 currShot.getModel().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos + 0.02f, currShot.zPos));
                                 currShot.getInfo().setLocalPosition(new Vector3(currShot.xPos, currShot.yPos + 0.1f, currShot.zPos));
 
@@ -755,18 +734,13 @@ public class MainActivity extends AppCompatActivity {
             game.setAwayScore(game.getAwayScore() + 1);
         }
 
-        // Create a TextView programmatically.
         TextView goalText = new TextView(getApplicationContext());
 
-        // Create a LayoutParams for TextView
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
                 RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
-
-        // Apply the layout parameters to TextView widget
         goalText.setLayoutParams(lp);
 
-        // Set text to display in TextView
         String temp = "GOAL " + currGoal.team + "\n" + currGoal.player + "\n" + String.valueOf(game.getHomeScore()) + " - " + String.valueOf(game.getAwayScore());
         goalText.setText(temp);
 
@@ -790,9 +764,6 @@ public class MainActivity extends AppCompatActivity {
                 goalStage)
                 .handle(
                         (notUsed, throwable) -> {
-                            // When you build a Renderable, Sceneform loads its resources in the background while
-                            // returning a CompletableFuture. Call handle(), thenAccept(), or check isDone()
-                            // before calling get().
 
                             if (throwable != null) {
                                 return null;
@@ -823,21 +794,15 @@ public class MainActivity extends AppCompatActivity {
 
     public void newEjection(Ejection currEjection) { // Called when a player is ejected from play
 
-        // Create a TextView programmatically.
         TextView ejectionText = new TextView(getApplicationContext());
 
-        // Create a LayoutParams for TextView
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
                 RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
-
-        // Apply the layout parameters to TextView widget
         ejectionText.setLayoutParams(lp);
 
-        // Set text to display in TextView
         ejectionText.setText(currEjection.violation + "\n" + currEjection.player);
 
-        // Set a text color for TextView text
         if (currEjection.team == game.getHomeTeam()) {
             ejectionText.setTextColor(Color.parseColor(game.getHomeColor()));
         } else if (currEjection.team == game.getAwayTeam()) {
@@ -853,9 +818,6 @@ public class MainActivity extends AppCompatActivity {
                 ejectionStage)
                 .handle(
                         (notUsed, throwable) -> {
-                            // When you build a Renderable, Sceneform loads its resources in the background while
-                            // returning a CompletableFuture. Call handle(), thenAccept(), or check isDone()
-                            // before calling get().
 
                             if (throwable != null) {
                                 return null;
@@ -916,22 +878,15 @@ public class MainActivity extends AppCompatActivity {
     // Called when there is a face off
     public void newFaceOff() {
 
-        // Create a TextView programmatically.
         TextView faceOffText = new TextView(getApplicationContext());
 
-        // Create a LayoutParams for TextView
         RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT, // Width of TextView
                 RelativeLayout.LayoutParams.WRAP_CONTENT); // Height of TextView
-
-        // Apply the layout parameters to TextView widget
         faceOffText.setLayoutParams(lp);
 
-        // Set text to display in TextView
         String temp = "Face Off";
         faceOffText.setText(temp);
-
-        // Set a text color for TextView text
         faceOffText.setTextColor(Color.parseColor("#000000"));
 
         CompletableFuture<ViewRenderable> faceOffStage =
@@ -1008,7 +963,7 @@ public class MainActivity extends AppCompatActivity {
             game.getHomePPNode().getAnchor().detach();
         } catch (NullPointerException e) {
         }
-        try { // Clear PP anchors
+        try {
             game.getAwayPP().getScene().onRemoveChild(game.getAwayPP().getParent());
             game.getAwayPP().setRenderable(null);
             game.getAwayPPNode().getAnchor().detach();
@@ -1063,7 +1018,7 @@ public class MainActivity extends AppCompatActivity {
                     statsTextL.setGravity(Gravity.CENTER);
                     statsTextL.setLayoutParams(lp);
 
-                    try {
+                    try { // If shots == 0
                         String textL = "<font color="+game.getHomeColor()+">"+ game.getHomeScore() + "<br />" +
                                 Integer.toString(homeShots) + "<br />" +
                                 Integer.toString((game.getHomeScore()*100)/homeShots) + "<br />" +
@@ -1168,7 +1123,7 @@ public class MainActivity extends AppCompatActivity {
     public void refresh(View view) {
         rinkPlaced = false;
 
-        // Remove all elements on screen and all renders
+        // Remove all elements on screen and all renderables
         statsToggle.setVisibility(View.GONE);
         refreshButton.setVisibility(View.GONE);
 
